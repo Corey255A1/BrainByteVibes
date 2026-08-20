@@ -62,7 +62,7 @@ export function ReaderPage({ profile, topicCard, articleId, onBack }: Props) {
       setArticle(newArticle);
 
       // Enqueue sync mutation & evaluate badges
-      syncManager.enqueueArticlePush(newArticle);
+      syncManager.enqueueArticlePush(newArticle, profile.name);
       syncManager.enqueueReadingLog(profile.id, newArticle.id, newArticle.readTimeMinutes, false);
       checkBadges();
     } catch (e) {

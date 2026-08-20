@@ -10,13 +10,13 @@ from app.services.markdown_store import markdown_store
 logger = logging.getLogger("uvicorn.error")
 
 class SyncService:
-    def _ensure_user(self, session: Session, user_id: str) -> None:
+    def _ensure_user(self, session: Session, user_id: str, name: str = None) -> None:
         try:
             user = session.get(User, user_id)
             if not user:
                 new_user = User(
                     id=user_id,
-                    name=user_id,
+                    name=name or user_id,
                     avatar_emoji="🧑‍💻",
                     categories="[]",
                     read_length_minutes=5,
@@ -50,21 +50,24 @@ class SyncService:
                     tags = json.dumps(tags_raw) if isinstance(tags_raw, list) else str(tags_raw or "[]")
                     read_time = int(payload.get("readTimeMinutes", 5) or 5)
                     markdown_content = payload.get("markdownContent", "")
+                    user_name = payload.get("userName") or payload.get("username") or user_id
+
                     frontmatter = payload.get("frontmatter") or {
                         "id": article_id,
                         "title": title,
                         "category": category,
-                        "user": user_id
+                        "user": user_name
                     }
                     game_type = payload.get("gameType")
                     game_completed = bool(payload.get("gameCompleted", False))
 
-                    # Save markdown file
+                    # Save markdown file under user_name directory with TitleNoSpaces.md filename
                     rel_path = markdown_store.save_article(
-                        username=user_id,
+                        username=user_name,
                         article_id=article_id,
                         frontmatter=frontmatter,
-                        content=markdown_content
+                        content=markdown_content,
+                        title=title
                     )
 
                     # Upsert DB metadata record
@@ -74,6 +77,7 @@ class SyncService:
                         existing.category = category
                         existing.tags = tags
                         existing.game_completed = game_completed
+                        existing.file_path = rel_path
                     else:
                         article_meta = ArticleMeta(
                             id=article_id,
@@ -126,7 +130,7 @@ class SyncService:
 
         for meta in articles_meta:
             try:
-                fm, content = markdown_store.read_article(user_id, meta.id)
+                fm, content = markdown_store.read_article(user_id, meta.id, file_path=meta.file_path)
                 result_articles.append({
                     "id": meta.id,
                     "title": meta.title,

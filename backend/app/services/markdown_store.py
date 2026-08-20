@@ -1,20 +1,38 @@
 import os
+import re
 from pathlib import Path
 import yaml
 from app.core.config import settings
+
+def format_title_filename(title: str, article_id: str) -> str:
+    if not title:
+        return f"{article_id}.md"
+
+    # Split title into words, remove non-alphanumeric chars per word, join with no spaces
+    words = title.split()
+    clean_words = [re.sub(r'[^\w]', '', w) for w in words]
+    clean_title = "".join(clean_words)
+
+    if not clean_title:
+        return f"{article_id}.md"
+
+    return f"{clean_title}.md"
 
 class MarkdownStore:
     def __init__(self, base_dir: str = None):
         self.base_dir = Path(base_dir or settings.ARTICLES_DIR)
 
     def get_user_dir(self, username: str) -> Path:
-        user_dir = self.base_dir / username
+        # Sanitize username directory (e.g., "Corey" -> "corey")
+        safe_username = re.sub(r'[^\w\s-]', '', username or "user").strip().lower() or "user"
+        user_dir = self.base_dir / safe_username
         user_dir.mkdir(parents=True, exist_ok=True)
         return user_dir
 
-    def save_article(self, username: str, article_id: str, frontmatter: dict, content: str) -> str:
+    def save_article(self, username: str, article_id: str, frontmatter: dict, content: str, title: str = None) -> str:
         user_dir = self.get_user_dir(username)
-        filename = f"{article_id}.md"
+        article_title = title or frontmatter.get("title") or ""
+        filename = format_title_filename(article_title, article_id)
         filepath = user_dir / filename
 
         fm_string = yaml.safe_dump(frontmatter, sort_keys=False)
@@ -25,9 +43,12 @@ class MarkdownStore:
 
         return str(filepath.relative_to(self.base_dir))
 
-    def read_article(self, username: str, article_id: str) -> tuple[dict, str]:
-        user_dir = self.get_user_dir(username)
-        filepath = user_dir / f"{article_id}.md"
+    def read_article(self, username: str, article_id: str, file_path: str = None) -> tuple[dict, str]:
+        if file_path:
+            filepath = self.base_dir / file_path
+        else:
+            user_dir = self.get_user_dir(username)
+            filepath = user_dir / f"{article_id}.md"
 
         if not filepath.exists():
             raise FileNotFoundError(f"Article {article_id} not found for user {username}")

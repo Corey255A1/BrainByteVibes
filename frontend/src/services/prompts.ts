@@ -2,13 +2,13 @@ export function buildTopicPrompt(categories: string[], readHistory: string[] = [
   const cats = categories.length > 0 ? categories.join(', ') : 'General Knowledge, Technology, Science';
   const history = readHistory.length > 0 ? readHistory.slice(-10).join(', ') : 'None';
 
-  return `You are a micro-learning topic curator for AntiScroll.
+  return `You are a micro-learning topic curator for BrainByte.
 User preferred categories: ${cats}
 Recently read topics: ${history}
 
-Generate exactly 5 distinct, highly intriguing micro-learning topic cards.
+Generate exactly 5 distinct, highly intriguing micro-learning topic cards strictly tailored to the user's preferred categories (${cats}).
 Requirements:
-1. Surprising, focused, or non-obvious aspect of one of the target categories.
+1. Focus on surprising, non-obvious, or deep-dive aspects of the target categories.
 2. Short catchy title (max 6 words).
 3. Subtitle hook (1 punchy sentence).
 
@@ -33,11 +33,11 @@ export function buildArticlePrompt(topic: string, category: string, readMinutes:
 Target read length: ${readMinutes} minutes (~${wordCount} words).
 
 Structure requirements:
-1. Catchy title and short intro hook
-2. Clear markdown ## headings
-3. Use > callout boxes for key takeaways
-4. Include concrete code snippets or examples if technical
-5. End with a "## Sources" section listing 2-3 real references
+1. Catchy title and short intro hook explaining why this subject is fascinating.
+2. Clear markdown ## headings structuring the topic.
+3. Use > callout boxes for key takeaways or surprising facts.
+4. STRICT CATEGORY ALIGNMENT: Focus strictly on the subject matter of "${category}". If and ONLY IF the category is explicitly a software programming or computer science topic (e.g. C++, Python, Web Dev, DevOps), include code snippets. DO NOT output code snippets or Python scripts for biology, oceanography, science, history, music, or general topics unless explicitly requested.
+5. End with a "## Sources" section listing 2-3 real references or key study areas.
 
 At the very end of the article, output a mini-game JSON inside a \`\`\`game-json ... \`\`\` code fence testing the article content.
 Pick ONE game type out of: "wordle", "flashcard", "concept_match", "crossword", or "word_search".
@@ -48,7 +48,7 @@ Schema options:
 \`\`\`game-json
 {
   "type": "wordle",
-  "data": { "targetWord": "RAFT", "hint": "Consensus algorithm term", "maxAttempts": 6 }
+  "data": { "targetWord": "OCEAN", "hint": "Vast body of saltwater", "maxAttempts": 6 }
 }
 \`\`\`
 
@@ -56,7 +56,7 @@ Schema options:
 \`\`\`game-json
 {
   "type": "flashcard",
-  "data": { "cards": [ { "front": "Question", "back": "Answer" } ] }
+  "data": { "cards": [ { "front": "What is the deepest ocean trench?", "back": "Mariana Trench" } ] }
 }
 \`\`\`
 
@@ -64,7 +64,7 @@ Schema options:
 \`\`\`game-json
 {
   "type": "concept_match",
-  "data": { "pairs": [ { "term": "Term", "definition": "Definition" } ] }
+  "data": { "pairs": [ { "term": "Bioluminescence", "definition": "Light produced by living organisms" } ] }
 }
 \`\`\`
 
@@ -75,7 +75,7 @@ Schema options:
   "data": {
     "gridSize": { "rows": 5, "cols": 5 },
     "clues": [
-      { "number": 1, "direction": "across", "clue": "Consensus algorithm", "answer": "RAFT", "startRow": 0, "startCol": 0 }
+      { "number": 1, "direction": "across", "clue": "Deepest trench", "answer": "MARIANA", "startRow": 0, "startCol": 0 }
     ]
   }
 }
@@ -87,8 +87,8 @@ Schema options:
   "type": "word_search",
   "data": {
     "gridSize": 6,
-    "grid": [["R","A","F","T","X","Y"],["A","B","C","D","E","F"],["G","H","I","J","K","L"],["M","N","O","P","Q","R"],["S","T","U","V","W","X"],["Y","Z","A","B","C","D"]],
-    "words": [ { "word": "RAFT", "hint": "Consensus algorithm" } ]
+    "grid": [["O","C","E","A","N","X"],["A","B","C","D","E","F"],["G","H","I","J","K","L"],["M","N","O","P","Q","R"],["S","T","U","V","W","X"],["Y","Z","A","B","C","D"]],
+    "words": [ { "word": "OCEAN", "hint": "Vast body of saltwater" } ]
   }
 }
 \`\`\`

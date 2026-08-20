@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'preact/hooks';
 import type { Profile, TopicCard as ITopicCard } from './types';
-import { ensureDefaultProfile } from './db/database';
+import { db } from './db/database';
+import { syncManager } from './services/sync';
 import { Navbar } from './components/common/Navbar';
 import { ProfileSwitcher } from './components/common/ProfileSwitcher';
+import { ProfileSelectModal } from './components/common/ProfileSelectModal';
 import { FeedPage } from './pages/FeedPage';
 import { ReaderPage } from './pages/ReaderPage';
 import { LibraryPage } from './pages/LibraryPage';
@@ -11,22 +13,42 @@ import { SettingsPage } from './pages/SettingsPage';
 
 export function App() {
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [showProfileSelectModal, setShowProfileSelectModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'feed' | 'library' | 'progress' | 'settings'>('feed');
   const [selectedTopic, setSelectedTopic] = useState<ITopicCard | null>(null);
   const [selectedArticleId, setSelectedArticleId] = useState<string | null>(null);
   const [isReading, setIsReading] = useState(false);
 
   useEffect(() => {
-    ensureDefaultProfile().then(setProfile);
+    loadCachedOrInitialProfile();
   }, []);
 
-  if (!profile) {
-    return (
-      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-4">
-        <div className="animate-pulse text-sm text-slate-400 font-semibold">Initializing AntiScroll...</div>
-      </div>
-    );
-  }
+  const loadCachedOrInitialProfile = async () => {
+    const cachedId = localStorage.getItem('brainbyte_active_user_id');
+    if (cachedId) {
+      const cachedProfile = await db.profiles.get(cachedId);
+      if (cachedProfile) {
+        setProfile(cachedProfile);
+        setShowProfileSelectModal(false);
+        return;
+      }
+    }
+
+    // No cached user ID exists -> prompt profile selection modal
+    setShowProfileSelectModal(true);
+  };
+
+  const handleSelectProfile = (selected: Profile) => {
+    localStorage.setItem('brainbyte_active_user_id', selected.id);
+    setProfile(selected);
+    setIsReading(false);
+    setSelectedTopic(null);
+    setSelectedArticleId(null);
+    setShowProfileSelectModal(false);
+
+    // Trigger sync for the newly selected profile
+    syncManager.processSyncQueue();
+  };
 
   const handleSelectTopicCard = (topic: ITopicCard) => {
     setSelectedTopic(topic);
@@ -48,6 +70,11 @@ export function App() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-emerald-500 selection:text-slate-950 font-sans">
+      {/* Profile Selection Modal (If no user is selected) */}
+      {showProfileSelectModal && (
+        <ProfileSelectModal onSelectProfile={handleSelectProfile} />
+      )}
+
       {/* Top Header Bar */}
       <header className="sticky top-0 z-30 bg-slate-950/80 backdrop-blur-md border-b border-slate-900 px-4 py-3">
         <div className="max-w-md mx-auto flex items-center justify-between">
@@ -59,39 +86,50 @@ export function App() {
               🧠 Micro-Learning
             </span>
           </div>
-          <ProfileSwitcher currentProfile={profile} onSelectProfile={setProfile} />
+          {profile && (
+            <ProfileSwitcher currentProfile={profile} onSelectProfile={handleSelectProfile} />
+          )}
         </div>
       </header>
 
-      {/* Main View Area */}
+      {/* Main View Area (Keyed by profile.id to force clean re-mount when switching users) */}
       <main className="min-h-[calc(100vh-60px)]">
-        {isReading ? (
-          <ReaderPage
-            profile={profile}
-            topicCard={selectedTopic}
-            articleId={selectedArticleId}
-            onBack={handleBackFromReader}
-          />
+        {profile ? (
+          isReading ? (
+            <ReaderPage
+              key={`reader-${profile.id}-${selectedTopic?.id || selectedArticleId}`}
+              profile={profile}
+              topicCard={selectedTopic}
+              articleId={selectedArticleId}
+              onBack={handleBackFromReader}
+            />
+          ) : (
+            <>
+              {activeTab === 'feed' && (
+                <FeedPage key={`feed-${profile.id}`} profile={profile} onSelectTopic={handleSelectTopicCard} />
+              )}
+              {activeTab === 'library' && (
+                <LibraryPage key={`library-${profile.id}`} profile={profile} onSelectArticle={handleSelectLibraryArticle} />
+              )}
+              {activeTab === 'progress' && (
+                <ProgressPage key={`progress-${profile.id}`} profile={profile} />
+              )}
+              {activeTab === 'settings' && (
+                <SettingsPage key={`settings-${profile.id}`} profile={profile} onUpdateProfile={handleSelectProfile} />
+              )}
+            </>
+          )
         ) : (
-          <>
-            {activeTab === 'feed' && (
-              <FeedPage profile={profile} onSelectTopic={handleSelectTopicCard} />
-            )}
-            {activeTab === 'library' && (
-              <LibraryPage profile={profile} onSelectArticle={handleSelectLibraryArticle} />
-            )}
-            {activeTab === 'progress' && (
-              <ProgressPage profile={profile} />
-            )}
-            {activeTab === 'settings' && (
-              <SettingsPage profile={profile} onUpdateProfile={setProfile} />
-            )}
-          </>
+          <div className="min-h-[60vh] flex items-center justify-center p-4">
+            <div className="animate-pulse text-sm text-slate-400 font-semibold">
+              Select or create a user profile to start...
+            </div>
+          </div>
         )}
       </main>
 
-      {/* Bottom Navbar (Hidden during active article reading) */}
-      {!isReading && (
+      {/* Bottom Navbar (Hidden during active article reading or modal) */}
+      {!isReading && profile && (
         <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
       )}
     </div>

@@ -22,7 +22,7 @@ export class SyncManager {
     }
   }
 
-  public async enqueueArticlePush(article: Article): Promise<void> {
+  public async enqueueArticlePush(article: Article, userName?: string): Promise<void> {
     await db.syncQueue.add({
       profileId: article.profileId,
       action: 'push_article',
@@ -35,12 +35,13 @@ export class SyncManager {
         markdownContent: article.markdownContent,
         gameType: article.gamePayload?.type || null,
         gameCompleted: article.gameCompleted,
+        userName: userName || article.profileId,
         frontmatter: {
           id: article.id,
           title: article.title,
           category: article.category,
           tags: article.tags,
-          user: article.profileId,
+          user: userName || article.profileId,
           read_time_minutes: article.readTimeMinutes
         }
       },
