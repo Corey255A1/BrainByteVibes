@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     DATABASE_URL: str = "sqlite:///./antiscroll.db"
     ARTICLES_DIR: str = "./data/articles"
+    STATIC_DIR: str = "./static"
     CORS_ORIGINS: list[str] = ["http://localhost:5173", "http://localhost:8000", "*"]
 
     model_config = SettingsConfigDict(

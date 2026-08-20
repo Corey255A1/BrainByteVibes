@@ -3,7 +3,8 @@ import type { Profile } from '../types';
 import { db } from '../db/database';
 import { geminiService, type GeminiModelInfo } from '../services/gemini';
 import { syncManager } from '../services/sync';
-import { Key, Server, Tag, Clock, Cpu, RefreshCw, CheckCircle, XCircle } from 'lucide-react';
+import { ToastModal } from '../components/common/ToastModal';
+import { Key, Server, Tag, Clock, Cpu, RefreshCw, CheckCircle, XCircle, Search, ArrowUpDown } from 'lucide-react';
 
 interface Props {
   profile: Profile;
@@ -21,6 +22,25 @@ export function SettingsPage({ profile, onUpdateProfile }: Props) {
   const [newCat, setNewCat] = useState('');
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
+
+  // Model Sorting & Filtering State
+  const [modelSearch, setModelSearch] = useState('');
+  const [selectedCostFilter, setSelectedCostFilter] = useState<'all' | '💲' | '💲💲' | '💲💲💲'>('all');
+  const [sortBy, setSortBy] = useState<'cost_asc' | 'cost_desc' | 'name_asc'>('cost_asc');
+
+  // Stylized Modal Popup State
+  const [modalConfig, setModalConfig] = useState<{ isOpen: boolean; title: string; message?: string }>({
+    isOpen: false,
+    title: ''
+  });
+
+  const showModal = (title: string, message?: string) => {
+    setModalConfig({ isOpen: true, title, message });
+  };
+
+  const closeModal = () => {
+    setModalConfig(prev => ({ ...prev, isOpen: false }));
+  };
 
   useEffect(() => {
     setApiKey(localStorage.getItem('antiscroll_gemini_api_key') || '');
@@ -44,14 +64,14 @@ export function SettingsPage({ profile, onUpdateProfile }: Props) {
 
   const handleSaveApiKey = () => {
     geminiService.setApiKey(apiKey.trim());
-    alert('Gemini API key saved!');
+    showModal('API Key Saved', 'Your Gemini API key has been securely saved in local storage.');
     fetchAvailableModels(backendUrl);
   };
 
   const handleSaveBackendUrl = () => {
     syncManager.setBackendUrl(backendUrl.trim());
     syncManager.checkHealth().then(setIsOnline);
-    alert('Backend NAS URL saved!');
+    showModal('NAS Endpoint Saved', 'Your backend NAS connection URL has been updated.');
     fetchAvailableModels(backendUrl.trim());
   };
 
@@ -68,7 +88,7 @@ export function SettingsPage({ profile, onUpdateProfile }: Props) {
       categories
     });
     onUpdateProfile(updated);
-    alert('Preferences saved!');
+    showModal('Preferences Saved', 'Your reading duration, preferred AI model, and interest categories have been updated.');
   };
 
   const handleAddCategory = () => {
@@ -89,6 +109,30 @@ export function SettingsPage({ profile, onUpdateProfile }: Props) {
     setSyncStatus(`Sync finished! Processed: ${result.processed}, Errors: ${result.errors}`);
     setTimeout(() => setSyncStatus(null), 4000);
   };
+
+  // Filter and sort models
+  const filteredAndSortedModels = models
+    .filter(m => {
+      const matchesSearch =
+        m.name.toLowerCase().includes(modelSearch.toLowerCase()) ||
+        m.id.toLowerCase().includes(modelSearch.toLowerCase());
+      const matchesCost =
+        selectedCostFilter === 'all' || m.costTier === selectedCostFilter;
+      return matchesSearch && matchesCost;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'cost_asc') {
+        const costOrder: Record<string, number> = { '💲': 1, '💲💲': 2, '💲💲💲': 3 };
+        const diff = (costOrder[a.costTier] || 2) - (costOrder[b.costTier] || 2);
+        return diff !== 0 ? diff : a.id.localeCompare(b.id);
+      } else if (sortBy === 'cost_desc') {
+        const costOrder: Record<string, number> = { '💲': 1, '💲💲': 2, '💲💲💲': 3 };
+        const diff = (costOrder[b.costTier] || 2) - (costOrder[a.costTier] || 2);
+        return diff !== 0 ? diff : a.id.localeCompare(b.id);
+      } else {
+        return a.name.localeCompare(b.name);
+      }
+    });
 
   return (
     <div className="max-w-md mx-auto px-4 pt-4 pb-24 flex flex-col gap-6">
@@ -139,14 +183,85 @@ export function SettingsPage({ profile, onUpdateProfile }: Props) {
           Select which Gemini model to use for article and game generation. Cost markers (💲) indicate model expense.
         </p>
 
+        {/* Selected Model Display Text Field */}
+        <div className="flex flex-col gap-1.5 p-3 rounded-lg bg-slate-950/80 border border-slate-800">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            Currently Selected Model
+          </span>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={preferredModel}
+              onInput={(e) => setPreferredModel((e.target as HTMLInputElement).value)}
+              placeholder="e.g. gemini-1.5-flash"
+              className="flex-1 px-3 py-2 bg-slate-900 border border-emerald-500/50 rounded-lg text-emerald-300 font-mono text-xs font-bold focus:outline-none focus:border-emerald-400 shadow-inner"
+            />
+            <span className="text-xs px-2.5 py-2 rounded-lg bg-emerald-950 border border-emerald-500/30 text-emerald-400 font-bold whitespace-nowrap">
+              Active
+            </span>
+          </div>
+        </div>
+
+        {/* Search & Sort Controls */}
+        <div className="flex flex-col gap-2 mt-1">
+          <div className="relative">
+            <Search size={14} className="absolute left-2.5 top-2.5 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search model name or ID (e.g., flash, 8b, pro)..."
+              value={modelSearch}
+              onInput={(e) => setModelSearch((e.target as HTMLInputElement).value)}
+              className="w-full pl-8 pr-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200 focus:outline-none focus:border-emerald-400"
+            />
+          </div>
+
+          <div className="flex items-center justify-between gap-2 text-xs">
+            {/* Cost Filter Chips */}
+            <div className="flex gap-1 overflow-x-auto no-scrollbar">
+              {(['all', '💲', '💲💲', '💲💲💲'] as const).map(tier => (
+                <button
+                  key={tier}
+                  onClick={() => setSelectedCostFilter(tier)}
+                  className={`px-2 py-1 rounded text-[11px] font-bold whitespace-nowrap transition-all ${
+                    selectedCostFilter === tier
+                      ? 'bg-emerald-500 text-slate-950'
+                      : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-slate-200'
+                  }`}
+                >
+                  {tier === 'all' ? 'All' : tier}
+                </button>
+              ))}
+            </div>
+
+            {/* Sort Dropdown */}
+            <div className="flex items-center gap-1 bg-slate-950 border border-slate-800 rounded px-2 py-1">
+              <ArrowUpDown size={12} className="text-slate-400" />
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy((e.target as HTMLSelectElement).value as any)}
+                className="bg-transparent text-slate-300 text-[11px] font-semibold focus:outline-none cursor-pointer"
+              >
+                <option value="cost_asc">Cost: Low → High</option>
+                <option value="cost_desc">Cost: High → Low</option>
+                <option value="name_asc">Name: A → Z</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Model Items Container */}
         {isLoadingModels ? (
-          <div className="text-xs text-slate-400 py-3 text-center flex items-center justify-center gap-2">
+          <div className="text-xs text-slate-400 py-4 text-center flex items-center justify-center gap-2">
             <RefreshCw size={14} className="animate-spin text-emerald-400" />
             Querying available Gemini models...
           </div>
+        ) : filteredAndSortedModels.length === 0 ? (
+          <div className="p-4 text-center text-xs text-slate-400 bg-slate-950/60 rounded-lg border border-slate-800">
+            No models matched your filter search.
+          </div>
         ) : (
           <div className="flex flex-col gap-2 max-h-64 overflow-y-auto pr-1">
-            {models.map(m => {
+            {filteredAndSortedModels.map(m => {
               const isSelected = preferredModel === m.id;
               return (
                 <div
@@ -277,6 +392,14 @@ export function SettingsPage({ profile, onUpdateProfile }: Props) {
           Save Profile Preferences
         </button>
       </div>
+
+      {/* Stylized Modal Dialog */}
+      <ToastModal
+        isOpen={modalConfig.isOpen}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        onClose={closeModal}
+      />
     </div>
   );
 }

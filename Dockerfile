@@ -18,10 +18,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
+# Copy python backend requirements & install
 COPY backend/pyproject.toml backend/README.md ./
 COPY backend/app ./app
 RUN pip install --no-cache-dir .
 
+# Copy built frontend dist from Stage 1 into /app/static
 COPY --from=frontend-builder /app/frontend/dist ./static
 
 ENV STATIC_DIR=/app/static

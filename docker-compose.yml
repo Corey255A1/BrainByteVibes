@@ -1,9 +1,10 @@
 version: '3.8'
 
 services:
-  backend:
+  antiscroll:
+    container_name: antiscroll
     build:
-      context: ./backend
+      context: .
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
@@ -11,6 +12,7 @@ services:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - DATABASE_URL=sqlite:////data/antiscroll.db
       - ARTICLES_DIR=/data/articles
+      - STATIC_DIR=/app/static
     volumes:
       - antiscroll_data:/data
     restart: unless-stopped
