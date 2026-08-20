@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 from fastapi import APIRouter, Depends, Query, HTTPException
 from pydantic import BaseModel
@@ -5,6 +6,8 @@ from typing import Optional
 from sqlmodel import Session
 from app.core.database import get_session
 from app.services.sync_service import sync_service
+
+logger = logging.getLogger("uvicorn.error")
 
 router = APIRouter(prefix="/sync", tags=["sync"])
 
@@ -18,6 +21,7 @@ def push_sync(payload: PushPayload, session: Session = Depends(get_session)):
         result = sync_service.push_mutations(session, payload.user_id, payload.mutations)
         return {"status": "ok", "result": result}
     except Exception as e:
+        logger.error(f"Error handling push_sync for user {payload.user_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/pull/{user_id}")

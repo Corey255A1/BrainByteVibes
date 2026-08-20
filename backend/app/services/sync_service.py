@@ -1,42 +1,69 @@
 import json
-from datetime import datetime
+import logging
+from datetime import datetime, date
 from sqlmodel import Session, select
 from app.models.user import User
 from app.models.article import ArticleMeta
 from app.models.reading_log import ReadingLog
 from app.services.markdown_store import markdown_store
 
+logger = logging.getLogger("uvicorn.error")
+
 class SyncService:
+    def _ensure_user(self, session: Session, user_id: str) -> None:
+        try:
+            user = session.get(User, user_id)
+            if not user:
+                new_user = User(
+                    id=user_id,
+                    name=user_id,
+                    avatar_emoji="🧑‍💻",
+                    categories="[]",
+                    read_length_minutes=5,
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow()
+                )
+                session.add(new_user)
+                session.commit()
+        except Exception as e:
+            session.rollback()
+            logger.warn(f"Failed to auto-create user record for {user_id}: {e}")
+
     def push_mutations(self, session: Session, user_id: str, mutations: list[dict]) -> dict:
+        self._ensure_user(session, user_id)
         processed_count = 0
         errors = []
 
         for item in mutations:
             action = item.get("action")
-            payload = item.get("payload", {})
+            payload = item.get("payload", {}) or {}
 
             try:
                 if action == "push_article":
                     article_id = payload.get("id")
-                    title = payload.get("title")
+                    if not article_id:
+                        continue
+
+                    title = payload.get("title", "Untitled Article")
                     category = payload.get("category", "General")
-                    tags = json.dumps(payload.get("tags", []))
-                    read_time = payload.get("readTimeMinutes", 5)
+                    tags_raw = payload.get("tags", [])
+                    tags = json.dumps(tags_raw) if isinstance(tags_raw, list) else str(tags_raw or "[]")
+                    read_time = int(payload.get("readTimeMinutes", 5) or 5)
                     markdown_content = payload.get("markdownContent", "")
-                    frontmatter = payload.get("frontmatter", {})
+                    frontmatter = payload.get("frontmatter") or {
+                        "id": article_id,
+                        "title": title,
+                        "category": category,
+                        "user": user_id
+                    }
                     game_type = payload.get("gameType")
-                    game_completed = payload.get("gameCompleted", False)
+                    game_completed = bool(payload.get("gameCompleted", False))
 
                     # Save markdown file
                     rel_path = markdown_store.save_article(
                         username=user_id,
                         article_id=article_id,
-                        frontmatter=frontmatter or {
-                            "id": article_id,
-                            "title": title,
-                            "category": category,
-                            "user": user_id
-                        },
+                        frontmatter=frontmatter,
                         content=markdown_content
                     )
 
@@ -62,13 +89,14 @@ class SyncService:
                         session.add(article_meta)
 
                 elif action == "push_stats" or action == "log_reading":
-                    article_id = payload.get("articleId", "")
-                    minutes_spent = payload.get("minutesSpent", 0)
-                    game_completed = payload.get("gameCompleted", False)
+                    article_id = payload.get("articleId") or payload.get("article_id") or ""
+                    minutes_spent = int(payload.get("minutesSpent", 0) or 0)
+                    game_completed = bool(payload.get("gameCompleted", False))
 
                     log_entry = ReadingLog(
                         user_id=user_id,
                         article_id=article_id,
+                        log_date=date.today(),
                         minutes_spent=minutes_spent,
                         game_completed=game_completed
                     )
@@ -76,9 +104,16 @@ class SyncService:
 
                 processed_count += 1
             except Exception as e:
+                logger.error(f"Error processing mutation item {item}: {e}")
                 errors.append({"item": item, "error": str(e)})
 
-        session.commit()
+        try:
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Error committing push mutations for user {user_id}: {e}")
+            errors.append({"action": "commit", "error": str(e)})
+
         return {"processed": processed_count, "errors": errors}
 
     def pull_updates(self, session: Session, user_id: str, since: datetime = None) -> dict:

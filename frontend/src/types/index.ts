@@ -5,6 +5,7 @@ export interface Profile {
   categories: string[];
   readLengthMinutes: number;
   preferredModel?: string;
+  feedLayoutMode?: 'swipe' | 'classic';
   createdAt: Date;
 }
 
@@ -17,7 +18,7 @@ export interface TopicCard {
   isWildcard: boolean;
   generatedAt: Date;
   expiresAt: Date;
-  status: 'pending' | 'reading' | 'dismissed' | 'completed';
+  status: 'pending' | 'reading' | 'dismissed' | 'completed' | 'saved_for_later';
 }
 
 export type GameType = 'wordle' | 'flashcard' | 'concept_match' | 'crossword' | 'word_search';

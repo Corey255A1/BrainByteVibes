@@ -32,6 +32,7 @@ export async function ensureDefaultProfile(): Promise<Profile> {
       avatarEmoji: '🧑‍💻',
       categories: ['Software Architecture', 'C++', 'Math Puzzles', 'Music Theory', 'Science'],
       readLengthMinutes: 5,
+      feedLayoutMode: 'swipe',
       createdAt: new Date()
     };
     await db.profiles.add(defaultProfile);

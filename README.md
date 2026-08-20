@@ -1,4 +1,4 @@
-# 🚀 AntiScroll
+# 🧠 BrainByte
 
 <p align="center">
   <img src="https://img.shields.io/badge/PWA-Offline--First-emerald?style=for-the-badge&logo=pwa" alt="PWA Offline First" />
@@ -8,11 +8,11 @@
 </p>
 
 <h3 align="center">
-  <b>Trade doom-scrolling for bite-sized micro-learning & AI-generated mini-games.</b>
+  <b>Micro-learning in every swipe. Trade doom-scrolling for AI-generated micro-articles & mini-games.</b>
 </h3>
 
 <p align="center">
-  AntiScroll turns phone downtime into high-yield learning sessions. Instead of infinite social feeds, get 5 fresh, AI-curated micro-learning topics every day—complete with interactive mini-games, streak tracking, and self-hosted NAS sync.
+  BrainByte turns phone downtime into high-yield learning sessions. Instead of infinite social feeds, get 5 fresh, AI-curated micro-learning topics every day—complete with interactive mini-games, streak tracking, and self-hosted NAS sync.
 </p>
 
 ---

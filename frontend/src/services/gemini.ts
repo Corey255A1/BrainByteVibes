@@ -46,6 +46,43 @@ function determineCostTier(modelId: string): { costTier: string; costDescription
   return { costTier: '💲💲', costDescription: 'Standard' };
 }
 
+export function cleanMarkdownAndExtractGame(fullText: string): {
+  markdown: string;
+  gamePayload: GamePayload | null;
+} {
+  let gamePayload: GamePayload | null = null;
+  let markdown = fullText;
+
+  // Flexible regex matching ```game-json, ```json, ```game_json, or unlabelled code fence with "type"
+  const gameFenceRegex = /```(?:game-json|game_json|json)?\s*(\{\s*"type"[\s\S]*?\})\s*```?/i;
+  const match = fullText.match(gameFenceRegex);
+
+  if (match) {
+    try {
+      gamePayload = JSON.parse(match[1]);
+    } catch (e) {
+      console.warn('Failed to parse extracted game JSON:', e);
+    }
+    markdown = fullText.replace(gameFenceRegex, '').trim();
+  } else {
+    // Secondary fallback: search for raw JSON block containing "type" at the end of the text
+    const jsonFallbackMatch = fullText.match(/(\{\s*"type"\s*:\s*"(?:wordle|flashcard|concept_match|crossword|word_search)"[\s\S]*?\})\s*$/i);
+    if (jsonFallbackMatch) {
+      try {
+        gamePayload = JSON.parse(jsonFallbackMatch[1]);
+        markdown = fullText.replace(jsonFallbackMatch[0], '').trim();
+      } catch (e) {
+        // ignore
+      }
+    }
+  }
+
+  // Clean trailing unclosed code fences or partial backticks
+  markdown = markdown.replace(/```(?:game-json|game_json|json)?\s*$/i, '').trim();
+
+  return { markdown, gamePayload };
+}
+
 export class GeminiService {
   private getApiKey(): string | null {
     return localStorage.getItem('antiscroll_gemini_api_key') || null;
@@ -64,7 +101,6 @@ export class GeminiService {
   }
 
   public async listModels(backendUrl?: string): Promise<GeminiModelInfo[]> {
-    // Attempt backend NAS endpoint if reachable first
     if (backendUrl) {
       try {
         const res = await fetch(`${backendUrl}/ai/models`, {
@@ -81,7 +117,6 @@ export class GeminiService {
       }
     }
 
-    // Direct SDK call client side
     try {
       const ai = this.getClient();
       const response = await ai.models.list();
@@ -163,25 +198,16 @@ export class GeminiService {
     for await (const chunk of responseStream) {
       if (chunk.text) {
         fullText += chunk.text;
-        if (onChunk) onChunk(fullText);
+        if (onChunk) {
+          // Clean game JSON fence during streaming preview
+          const { markdown: cleanStreamText } = cleanMarkdownAndExtractGame(fullText);
+          onChunk(cleanStreamText);
+        }
       }
     }
 
-    // Extract game JSON payload if present
-    let gamePayload: GamePayload | null = null;
-    let markdown = fullText;
-
-    const gameMatch = fullText.match(/```game-json\s*([\s\S]*?)\s*```/);
-    if (gameMatch) {
-      try {
-        gamePayload = JSON.parse(gameMatch[1]);
-        markdown = fullText.replace(/```game-json\s*[\s\S]*?\s*```/, '').trim();
-      } catch (e) {
-        console.warn('Failed to parse game JSON payload:', e);
-      }
-    }
-
-    return { markdown, gamePayload };
+    // Extract game JSON payload and clean markdown text
+    return cleanMarkdownAndExtractGame(fullText);
   }
 }
 

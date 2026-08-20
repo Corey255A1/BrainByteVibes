@@ -10,9 +10,9 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
-        name: 'AntiScroll',
-        short_name: 'AntiScroll',
-        description: 'Micro-learning micro-articles and mini-games to replace phone scrolling',
+        name: 'BrainByte — Micro-Learning in Every Swipe',
+        short_name: 'BrainByte',
+        description: 'Bite-sized AI micro-learning articles and interactive mini-games to replace phone scrolling',
         theme_color: '#020617',
         background_color: '#020617',
         display: 'standalone',

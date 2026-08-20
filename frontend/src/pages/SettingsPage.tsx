@@ -4,7 +4,7 @@ import { db } from '../db/database';
 import { geminiService, type GeminiModelInfo } from '../services/gemini';
 import { syncManager } from '../services/sync';
 import { ToastModal } from '../components/common/ToastModal';
-import { Key, Server, Tag, Clock, Cpu, RefreshCw, CheckCircle, XCircle, Search, ArrowUpDown } from 'lucide-react';
+import { Key, Server, Tag, Clock, Cpu, RefreshCw, CheckCircle, XCircle, Search, ArrowUpDown, Compass } from 'lucide-react';
 
 interface Props {
   profile: Profile;
@@ -16,6 +16,7 @@ export function SettingsPage({ profile, onUpdateProfile }: Props) {
   const [backendUrl, setBackendUrl] = useState('');
   const [readLength, setReadLength] = useState(profile.readLengthMinutes || 5);
   const [preferredModel, setPreferredModel] = useState(profile.preferredModel || 'gemini-1.5-flash');
+  const [feedLayoutMode, setFeedLayoutMode] = useState<'swipe' | 'classic'>(profile.feedLayoutMode || 'swipe');
   const [models, setModels] = useState<GeminiModelInfo[]>([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [categories, setCategories] = useState<string[]>(profile.categories || []);
@@ -80,15 +81,17 @@ export function SettingsPage({ profile, onUpdateProfile }: Props) {
       ...profile,
       readLengthMinutes: readLength,
       preferredModel,
+      feedLayoutMode,
       categories
     };
     await db.profiles.update(profile.id, {
       readLengthMinutes: readLength,
       preferredModel,
+      feedLayoutMode,
       categories
     });
     onUpdateProfile(updated);
-    showModal('Preferences Saved', 'Your reading duration, preferred AI model, and interest categories have been updated.');
+    showModal('Preferences Saved', 'Your feed display mode, reading duration, preferred AI model, and categories have been updated.');
   };
 
   const handleAddCategory = () => {
@@ -333,8 +336,43 @@ export function SettingsPage({ profile, onUpdateProfile }: Props) {
         {syncStatus && <p className="text-[11px] text-emerald-400 text-center font-semibold">{syncStatus}</p>}
       </div>
 
-      {/* Target Read Length & Categories */}
+      {/* Target Read Length, Feed Mode & Categories */}
       <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex flex-col gap-4">
+        <div>
+          <div className="flex items-center gap-2 font-bold text-sm text-slate-200 mb-2">
+            <Compass size={18} className="text-teal-400" />
+            <span>Feed Display Mode</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => setFeedLayoutMode('swipe')}
+              className={`p-3 rounded-xl border text-left flex flex-col gap-1 transition-all ${
+                feedLayoutMode === 'swipe'
+                  ? 'bg-emerald-950/80 border-emerald-500 text-emerald-300 ring-1 ring-emerald-500/50'
+                  : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <span className="font-bold text-xs text-white">🎴 Swipe Stack (Default)</span>
+              <span className="text-[10px] text-slate-400 leading-tight">
+                Swipe left/right/down. Never-ending AI topic stream.
+              </span>
+            </button>
+            <button
+              onClick={() => setFeedLayoutMode('classic')}
+              className={`p-3 rounded-xl border text-left flex flex-col gap-1 transition-all ${
+                feedLayoutMode === 'classic'
+                  ? 'bg-emerald-950/80 border-emerald-500 text-emerald-300 ring-1 ring-emerald-500/50'
+                  : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <span className="font-bold text-xs text-white">📋 Classic Deck List</span>
+              <span className="text-[10px] text-slate-400 leading-tight">
+                5-topic card deck list with manual refresh.
+              </span>
+            </button>
+          </div>
+        </div>
+
         <div>
           <div className="flex items-center gap-2 font-bold text-sm text-slate-200 mb-2">
             <Clock size={18} className="text-emerald-400" />
