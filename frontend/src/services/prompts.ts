@@ -37,7 +37,7 @@ Structure requirements:
 2. Clear markdown ## headings structuring the topic.
 3. Use > callout boxes for key takeaways or surprising facts.
 4. STRICT CATEGORY ALIGNMENT: Focus strictly on the subject matter of "${category}". If and ONLY IF the category is explicitly a software programming or computer science topic (e.g. C++, Python, Web Dev, DevOps), include code snippets. DO NOT output code snippets or Python scripts for biology, oceanography, science, history, music, or general topics unless explicitly requested.
-5. End with a "## Sources" section listing 2-3 real references or key study areas.
+5. End with a "## Sources" section listing 2-3 real, authoritative references (websites, research papers, books, or documentation). EVERY source entry MUST include a clickable markdown link with a valid, real HTTPS URL (e.g., - [NOAA Ocean Exploration](https://oceanexplorer.noaa.gov/) or - [Wikipedia: Mariana Trench](https://en.wikipedia.org/wiki/Mariana_Trench)).
 
 At the very end of the article, output a mini-game JSON inside a \`\`\`game-json ... \`\`\` code fence testing the article content.
 Pick ONE game type out of: "wordle", "flashcard", "concept_match", "crossword", or "word_search".

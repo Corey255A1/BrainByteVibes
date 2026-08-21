@@ -146,7 +146,7 @@ Structure:
 2. Clear markdown ## headings
 3. Use > callout boxes for key takeaways
 4. STRICT CATEGORY ALIGNMENT: Focus strictly on the subject matter of "{category}". Include code snippets ONLY IF the category is explicitly software engineering or computer programming. DO NOT output code snippets or Python scripts for biology, oceanography, science, history, music, or general topics.
-5. End with a "## Sources" section listing 2-3 real references
+5. End with a "## Sources" section listing 2-3 real, authoritative references (websites, research papers, books, or documentation). EVERY source entry MUST include a clickable markdown link with a valid, real HTTPS URL (e.g., - [NOAA Ocean Exploration](https://oceanexplorer.noaa.gov/) or - [Wikipedia: Mariana Trench](https://en.wikipedia.org/wiki/Mariana_Trench)).
 
 At the very end of the article, output a mini-game JSON inside a ```game-json ... ``` code fence testing the article content.
 Pick ONE game type out of: "wordle", "flashcard", "concept_match", "crossword", or "word_search".

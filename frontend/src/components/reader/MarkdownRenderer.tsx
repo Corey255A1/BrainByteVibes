@@ -8,6 +8,14 @@ marked.setOptions({
   breaks: true,
 });
 
+// Configure DOMPurify hook to make external links open safely in a new tab
+DOMPurify.addHook('afterSanitizeAttributes', function (node) {
+  if (node.tagName === 'A' && node.hasAttribute('href')) {
+    node.setAttribute('target', '_blank');
+    node.setAttribute('rel', 'noopener noreferrer');
+  }
+});
+
 interface Props {
   content: string;
 }
@@ -25,7 +33,7 @@ export function MarkdownRenderer({ content }: Props) {
 
     // Sanitize HTML safely
     return DOMPurify.sanitize(rawHtml, {
-      ADD_ATTR: ['target']
+      ADD_ATTR: ['target', 'rel']
     });
   }, [content]);
 
