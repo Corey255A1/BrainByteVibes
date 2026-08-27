@@ -28,16 +28,36 @@ export function ProfileSelectModal({ onSelectProfile }: Props) {
       // 2. Fetch remote user profiles from backend NAS server
       const remoteProfs = await syncManager.fetchRemoteUsers();
 
-      // 3. Merge profiles (prefer remote settings if newer)
+      // 3. Merge profiles (prefer local display name if remote is default/generic)
       const profileMap = new Map<string, Profile>();
-      localProfs.forEach(p => profileMap.set(p.id, p));
+      remoteProfs.forEach(rp => profileMap.set(rp.id, rp));
 
-      for (const rp of remoteProfs) {
-        profileMap.set(rp.id, rp);
-        await db.profiles.put(rp); // Upsert into IndexedDB
+      for (const lp of localProfs) {
+        const existingRemote = profileMap.get(lp.id);
+        if (existingRemote) {
+          if (lp.name && lp.name !== lp.id && !lp.name.startsWith('user-') && lp.name !== 'default-user') {
+            existingRemote.name = lp.name;
+            existingRemote.avatarEmoji = lp.avatarEmoji || existingRemote.avatarEmoji;
+            syncManager.pushUserProfile(existingRemote);
+          }
+          profileMap.set(lp.id, existingRemote);
+        } else {
+          profileMap.set(lp.id, lp);
+          syncManager.pushUserProfile(lp);
+        }
       }
 
-      const merged = Array.from(profileMap.values());
+      const merged: Profile[] = [];
+      for (const p of profileMap.values()) {
+        let cleanName = p.name;
+        if (cleanName === 'default-user' || cleanName.startsWith('user-1')) {
+          cleanName = p.id === 'default-user' ? 'Corey' : (p.id === 'renee' ? 'Renee' : 'Learner');
+        }
+        const cleanedProfile = { ...p, name: cleanName };
+        await db.profiles.put(cleanedProfile);
+        merged.push(cleanedProfile);
+      }
+
       setExistingProfiles(merged);
 
       // Only force wizard if no local OR remote profiles exist anywhere
