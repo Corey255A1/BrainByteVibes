@@ -46,7 +46,7 @@ export function FeedPage({ profile, onSelectTopic }: Props) {
       const items = await geminiService.fetchTopics(
         profile.categories,
         history,
-        profile.preferredModel || 'gemini-1.5-flash'
+        profile.preferredTopicModel || 'gemini-1.5-flash-8b'
       );
       const now = new Date();
       const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
@@ -83,7 +83,7 @@ export function FeedPage({ profile, onSelectTopic }: Props) {
       const items = await geminiService.fetchTopics(
         profile.categories,
         history,
-        profile.preferredModel || 'gemini-1.5-flash'
+        profile.preferredTopicModel || 'gemini-1.5-flash-8b'
       );
       const now = new Date();
       const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
@@ -114,7 +114,7 @@ export function FeedPage({ profile, onSelectTopic }: Props) {
     try {
       const wildcardItem = await geminiService.fetchWildcard(
         profile.categories,
-        profile.preferredModel || 'gemini-1.5-flash'
+        profile.preferredTopicModel || 'gemini-1.5-flash-8b'
       );
       const now = new Date();
       const card: ITopicCard = {

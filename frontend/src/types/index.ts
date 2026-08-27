@@ -5,6 +5,7 @@ export interface Profile {
   categories: string[];
   readLengthMinutes: number;
   preferredModel?: string;
+  preferredTopicModel?: string;
   feedLayoutMode?: 'swipe' | 'classic';
   createdAt: Date;
 }
@@ -102,3 +103,42 @@ export interface SyncQueueEntry {
   createdAt: Date;
   retries: number;
 }
+
+export interface SourceLink {
+  title: string;
+  url: string;
+  lessonTitle?: string;
+}
+
+export interface CourseNode {
+  id: string;
+  courseId: string;
+  profileId: string;
+  title: string;
+  description: string;
+  prerequisites: string[]; // Parent node IDs in the DAG
+  tags: string[];
+  status: 'locked' | 'available' | 'in_progress' | 'completed';
+  completedAt?: Date;
+  articleId?: string;
+  savedFilePath?: string;
+  timeSpentMinutes?: number;
+  markdownContent?: string;
+  gamePayload?: GamePayload | null;
+  sources?: SourceLink[];
+}
+
+export interface Course {
+  id: string;
+  profileId: string;
+  title: string;
+  topicPrompt: string;
+  folderName: string;
+  status: 'active' | 'completed' | 'archived';
+  progressPercentage: number;
+  compiledResources?: SourceLink[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+

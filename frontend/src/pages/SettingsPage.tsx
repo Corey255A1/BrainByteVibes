@@ -4,7 +4,7 @@ import { db } from '../db/database';
 import { geminiService, type GeminiModelInfo } from '../services/gemini';
 import { syncManager } from '../services/sync';
 import { ToastModal } from '../components/common/ToastModal';
-import { Key, Server, Tag, Clock, Cpu, RefreshCw, CheckCircle, XCircle, Search, ArrowUpDown, Compass } from 'lucide-react';
+import { Key, Server, Tag, Clock, Cpu, RefreshCw, CheckCircle, XCircle, Search, ArrowUpDown, Compass, Zap } from 'lucide-react';
 
 interface Props {
   profile: Profile;
@@ -16,6 +16,7 @@ export function SettingsPage({ profile, onUpdateProfile }: Props) {
   const [backendUrl, setBackendUrl] = useState('');
   const [readLength, setReadLength] = useState(profile.readLengthMinutes || 5);
   const [preferredModel, setPreferredModel] = useState(profile.preferredModel || 'gemini-1.5-flash');
+  const [preferredTopicModel, setPreferredTopicModel] = useState(profile.preferredTopicModel || 'gemini-1.5-flash-8b');
   const [feedLayoutMode, setFeedLayoutMode] = useState<'swipe' | 'classic'>(profile.feedLayoutMode || 'swipe');
   const [models, setModels] = useState<GeminiModelInfo[]>([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
@@ -81,17 +82,19 @@ export function SettingsPage({ profile, onUpdateProfile }: Props) {
       ...profile,
       readLengthMinutes: readLength,
       preferredModel,
+      preferredTopicModel,
       feedLayoutMode,
       categories
     };
     await db.profiles.update(profile.id, {
       readLengthMinutes: readLength,
       preferredModel,
+      preferredTopicModel,
       feedLayoutMode,
       categories
     });
     onUpdateProfile(updated);
-    showModal('Preferences Saved', 'Your feed display mode, reading duration, preferred AI model, and categories have been updated.');
+    showModal('Preferences Saved', 'Your AI topic model, article model, reading duration, and categories have been updated.');
   };
 
   const handleAddCategory = () => {
@@ -167,12 +170,42 @@ export function SettingsPage({ profile, onUpdateProfile }: Props) {
         </div>
       </div>
 
-      {/* Gemini Model Selector */}
+      {/* Topic Curation AI Model (Fast & Cheap) */}
+      <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 font-bold text-sm text-slate-200">
+            <Zap size={18} className="text-amber-400" />
+            <span>Topic Curation AI Model (Fast & Cheap)</span>
+          </div>
+        </div>
+        <p className="text-xs text-slate-400">
+          Used for generating daily topic cards, swipe stream replenishment, and wildcards. Choose a fast, low-cost model (e.g. 💲 8B / Flash).
+        </p>
+        <div className="flex flex-col gap-1.5 p-3 rounded-lg bg-slate-950/80 border border-slate-800">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            Topic Curator Model
+          </span>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={preferredTopicModel}
+              onInput={(e) => setPreferredTopicModel((e.target as HTMLInputElement).value)}
+              placeholder="e.g. gemini-1.5-flash-8b"
+              className="flex-1 px-3 py-2 bg-slate-900 border border-amber-500/50 rounded-lg text-amber-300 font-mono text-xs font-bold focus:outline-none focus:border-amber-400 shadow-inner"
+            />
+            <span className="text-xs px-2.5 py-2 rounded-lg bg-amber-950 border border-amber-500/30 text-amber-400 font-bold whitespace-nowrap">
+              Topic AI
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Article & Game AI Model Selector */}
       <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 font-bold text-sm text-slate-200">
             <Cpu size={18} className="text-emerald-400" />
-            <span>AI Model Selection</span>
+            <span>Article & Game AI Model (Deep Reasoning)</span>
           </div>
           <button
             onClick={() => fetchAvailableModels(backendUrl)}
@@ -183,13 +216,13 @@ export function SettingsPage({ profile, onUpdateProfile }: Props) {
           </button>
         </div>
         <p className="text-xs text-slate-400">
-          Select which Gemini model to use for article and game generation. Cost markers (💲) indicate model expense.
+          Select which model to write full micro-articles and interactive mini-games. Cost markers (💲) indicate model expense.
         </p>
 
-        {/* Selected Model Display Text Field */}
+        {/* Selected Article Model Display Text Field */}
         <div className="flex flex-col gap-1.5 p-3 rounded-lg bg-slate-950/80 border border-slate-800">
           <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-            Currently Selected Model
+            Article & Game Model
           </span>
           <div className="flex items-center gap-2">
             <input
@@ -200,7 +233,7 @@ export function SettingsPage({ profile, onUpdateProfile }: Props) {
               className="flex-1 px-3 py-2 bg-slate-900 border border-emerald-500/50 rounded-lg text-emerald-300 font-mono text-xs font-bold focus:outline-none focus:border-emerald-400 shadow-inner"
             />
             <span className="text-xs px-2.5 py-2 rounded-lg bg-emerald-950 border border-emerald-500/30 text-emerald-400 font-bold whitespace-nowrap">
-              Active
+              Article AI
             </span>
           </div>
         </div>
@@ -265,16 +298,12 @@ export function SettingsPage({ profile, onUpdateProfile }: Props) {
         ) : (
           <div className="flex flex-col gap-2 max-h-64 overflow-y-auto pr-1">
             {filteredAndSortedModels.map(m => {
-              const isSelected = preferredModel === m.id;
+              const isArticleSelected = preferredModel === m.id;
+              const isTopicSelected = preferredTopicModel === m.id;
               return (
                 <div
                   key={m.id}
-                  onClick={() => setPreferredModel(m.id)}
-                  className={`p-3 rounded-lg border cursor-pointer transition-all flex flex-col gap-1 ${
-                    isSelected
-                      ? 'bg-emerald-950/80 border-emerald-500 text-emerald-300 ring-1 ring-emerald-500/50'
-                      : 'bg-slate-950/80 border-slate-800 hover:border-slate-700 text-slate-300'
-                  }`}
+                  className={`p-3 rounded-lg border transition-all flex flex-col gap-2 bg-slate-950/80 border-slate-800 text-slate-300`}
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-xs text-white">{m.name}</span>
@@ -284,8 +313,32 @@ export function SettingsPage({ profile, onUpdateProfile }: Props) {
                   </div>
                   <span className="text-[10px] font-mono text-slate-400">{m.id}</span>
                   {m.description && (
-                    <p className="text-[11px] text-slate-400 line-clamp-2 mt-0.5">{m.description}</p>
+                    <p className="text-[11px] text-slate-400 line-clamp-2">{m.description}</p>
                   )}
+
+                  {/* Assign Buttons */}
+                  <div className="flex gap-2 pt-1 border-t border-slate-900">
+                    <button
+                      onClick={() => setPreferredTopicModel(m.id)}
+                      className={`flex-1 py-1 rounded text-[10px] font-bold transition-all ${
+                        isTopicSelected
+                          ? 'bg-amber-500 text-slate-950'
+                          : 'bg-slate-900 text-slate-400 border border-slate-800 hover:text-amber-300'
+                      }`}
+                    >
+                      {isTopicSelected ? '✓ Active Topic AI' : 'Set as Topic AI (⚡)'}
+                    </button>
+                    <button
+                      onClick={() => setPreferredModel(m.id)}
+                      className={`flex-1 py-1 rounded text-[10px] font-bold transition-all ${
+                        isArticleSelected
+                          ? 'bg-emerald-500 text-slate-950'
+                          : 'bg-slate-900 text-slate-400 border border-slate-800 hover:text-emerald-300'
+                      }`}
+                    >
+                      {isArticleSelected ? '✓ Active Article AI' : 'Set as Article AI (📖)'}
+                    </button>
+                  </div>
                 </div>
               );
             })}

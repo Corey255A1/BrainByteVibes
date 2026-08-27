@@ -1,8 +1,9 @@
-import { useState } from 'preact/hooks';
+import { useState, useEffect } from 'preact/hooks';
 import type { Article } from '../../types';
+import { fetchTopicImage, type GatheredImage } from '../../services/image_service';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { GameRunner } from '../games/GameRunner';
-import { ArrowLeft, CheckCircle, Copy } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Copy, Image as ImageIcon } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 interface Props {
@@ -14,6 +15,11 @@ interface Props {
 export function ArticleReader({ article, onBack, onGameComplete }: Props) {
   const [copied, setCopied] = useState(false);
   const [gameDone, setGameDone] = useState(article.gameCompleted);
+  const [topicImage, setTopicImage] = useState<GatheredImage | null>(null);
+
+  useEffect(() => {
+    fetchTopicImage(article.title, article.category).then(setTopicImage);
+  }, [article.id]);
 
   const handleGameComplete = () => {
     setGameDone(true);
@@ -59,6 +65,29 @@ export function ArticleReader({ article, onBack, onGameComplete }: Props) {
           {article.title}
         </h1>
       </div>
+
+      {/* Gathered Topic Hero Image */}
+      {topicImage && (
+        <div className="mb-6 rounded-2xl overflow-hidden border border-slate-800 bg-slate-900 shadow-xl group">
+          <div className="relative max-h-72 overflow-hidden bg-slate-950 flex items-center justify-center">
+            <img
+              src={topicImage.url}
+              alt={topicImage.caption}
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 max-h-72"
+              onError={(e) => {
+                (e.target as HTMLElement).style.display = 'none';
+              }}
+            />
+          </div>
+          <div className="p-3 bg-slate-900/90 flex items-center justify-between text-[11px] text-slate-400 border-t border-slate-800">
+            <span className="flex items-center gap-1.5 font-medium truncate max-w-[75%]">
+              <ImageIcon size={14} className="text-emerald-400 shrink-0" />
+              <span className="truncate">{topicImage.caption}</span>
+            </span>
+            <span className="font-mono text-[10px] text-slate-500 shrink-0">{topicImage.source}</span>
+          </div>
+        </div>
+      )}
 
       {/* Main Markdown Content */}
       <MarkdownRenderer content={article.markdownContent} />

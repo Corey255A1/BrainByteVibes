@@ -76,7 +76,7 @@ export function CreateProfileWizard({ onComplete, onCancel }: Props) {
       const rawTopics = await geminiService.fetchTopics(
         finalCategories,
         [],
-        'gemini-1.5-flash'
+        'gemini-1.5-flash-8b'
       );
 
       const now = new Date();

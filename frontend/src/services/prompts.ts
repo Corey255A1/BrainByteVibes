@@ -94,3 +94,83 @@ Schema options:
 \`\`\`
 `;
 }
+
+export function buildCourseDagPrompt(topicPrompt: string): string {
+  return `You are a master curriculum architect and subject matter expert for BrainByte.
+The user wants to master the following topic: "${topicPrompt}".
+
+Design a structured, progressive learning curriculum represented as a Knowledge Graph / Directed Acyclic Graph (DAG).
+Break down the subject into 5 to 7 logical bite-sized lesson nodes ordered from foundational concepts to advanced applications.
+
+Requirements:
+1. "course_title": Clean, catchy title for the entire course (max 6 words).
+2. "nodes": List of lesson nodes. Each node must have:
+   - "id": unique string identifier (e.g. "node-1", "node-2")
+   - "title": concise lesson title (e.g. "Foundations of Superposition")
+   - "description": 1-2 sentence hook describing what the user will master in this lesson.
+   - "prerequisites": list of prerequisite node IDs that MUST be completed before unlocking this node. The foundational node(s) must have an empty list [].
+   - "tags": list of 2-4 key concept/topic tags covered in this lesson.
+
+Output strictly valid JSON with this exact schema:
+{
+  "course_title": "Course Title Here",
+  "nodes": [
+    {
+      "id": "node-1",
+      "title": "Foundational Concept",
+      "description": "Introduction to key principles.",
+      "prerequisites": [],
+      "tags": ["basics", "principles"]
+    },
+    {
+      "id": "node-2",
+      "title": "Intermediate Topic",
+      "description": "Building upon foundational concepts.",
+      "prerequisites": ["node-1"],
+      "tags": ["intermediate", "application"]
+    }
+  ]
+}`;
+}
+
+export function buildCourseLessonPrompt(
+  courseTitle: string,
+  lessonTitle: string,
+  lessonDescription: string,
+  tags: string[],
+  readMinutes: number = 5
+): string {
+  const wordCount = readMinutes * 200;
+  const tagsStr = tags.length > 0 ? tags.join(', ') : 'General';
+
+  return `Write a bite-sized micro-learning lesson for the course "${courseTitle}".
+Lesson Title: "${lessonTitle}"
+Lesson Focus: ${lessonDescription}
+Key Topic Tags Covered: ${tagsStr}
+
+AVAILABLE USER READING TIME: ${readMinutes} MINUTES (~${wordCount} words target).
+
+IMPORTANT TIME-TAILORING RULES:
+1. If reading time is short (3-5 minutes): Make the article punchy, crystal clear, focused on 1 core mental model, and include 1 interactive check/quiz at the end.
+2. If reading time is medium to long (10-30 minutes): Provide a comprehensive deep dive with rich examples, detailed step-by-step breakdowns, code/diagrams if relevant, and 2-3 knowledge checks/quizzes.
+
+Structure requirements:
+1. Catchy title and short intro hook explaining the objective.
+2. Clear markdown ## headings.
+3. Use > callout boxes for key formulas, rules, or takeaways.
+4. Tag Summary Callout box at top highlighting covered topics: Tags: [${tagsStr}]
+5. End with a "## Sources" section listing 2-3 real, authoritative references with valid HTTPS links.
+
+At the very end of the lesson, output a mini-game JSON inside a \`\`\`game-json ... \`\`\` code fence testing the lesson content.
+Pick ONE game type out of: "wordle", "flashcard", "concept_match", "crossword", or "word_search".
+
+Schema example:
+\`\`\`game-json
+{
+  "type": "concept_match",
+  "data": { "pairs": [ { "term": "Term A", "definition": "Definition A" } ] }
+}
+\`\`\`
+`;
+}
+

@@ -1,6 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
-import { buildTopicPrompt, buildWildcardPrompt, buildArticlePrompt } from './prompts';
+import { buildTopicPrompt, buildWildcardPrompt, buildArticlePrompt, buildCourseDagPrompt, buildCourseLessonPrompt } from './prompts';
 import type { GamePayload } from '../types';
+
 
 export interface GeminiModelInfo {
   id: string;
@@ -209,6 +210,87 @@ export class GeminiService {
     // Extract game JSON payload and clean markdown text
     return cleanMarkdownAndExtractGame(fullText);
   }
+
+  public async fetchCourseDag(
+    topicPrompt: string,
+    model: string = 'gemini-1.5-flash'
+  ): Promise<{
+    course_title: string;
+    nodes: {
+      id: string;
+      title: string;
+      description: string;
+      prerequisites: string[];
+      tags: string[];
+    }[];
+  }> {
+    const prompt = buildCourseDagPrompt(topicPrompt);
+    const ai = this.getClient();
+    const response = await ai.models.generateContent({
+      model: model || 'gemini-1.5-flash',
+      contents: prompt,
+      config: { responseMimeType: 'application/json' }
+    });
+    const text = response.text || '{}';
+    return JSON.parse(text);
+  }
+
+  public async generateCourseLesson(
+    courseTitle: string,
+    lessonTitle: string,
+    lessonDescription: string,
+    tags: string[],
+    readMinutes: number = 5,
+    model: string = 'gemini-1.5-flash',
+    onChunk?: (text: string) => void
+  ): Promise<{ markdown: string; gamePayload: GamePayload | null }> {
+    const prompt = buildCourseLessonPrompt(courseTitle, lessonTitle, lessonDescription, tags, readMinutes);
+    const ai = this.getClient();
+
+    let fullText = '';
+    const responseStream = await ai.models.generateContentStream({
+      model: model || 'gemini-1.5-flash',
+      contents: prompt
+    });
+
+    for await (const chunk of responseStream) {
+      if (chunk.text) {
+        fullText += chunk.text;
+        if (onChunk) {
+          const { markdown: cleanStreamText } = cleanMarkdownAndExtractGame(fullText);
+          onChunk(cleanStreamText);
+        }
+      }
+    }
+
+    return cleanMarkdownAndExtractGame(fullText);
+  }
+
+  public async saveCourseLesson(payload: {
+    username: string;
+    folder_name: string;
+    lesson_id: string;
+    lesson_title: string;
+    content: string;
+    tags: string[];
+    read_minutes: number;
+    course_title: string;
+  }): Promise<{ status: string; saved_path: string } | null> {
+    try {
+      const res = await fetch('/api/courses/save-lesson', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (e) {
+      console.warn('Failed to save course lesson to backend:', e);
+    }
+    return null;
+  }
 }
 
 export const geminiService = new GeminiService();
+

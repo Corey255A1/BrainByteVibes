@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { Profile, TopicCard, Article, Badge, SyncQueueEntry } from '../types';
+import type { Profile, TopicCard, Article, Badge, SyncQueueEntry, Course, CourseNode } from '../types';
 
 export class AntiScrollDB extends Dexie {
   profiles!: Table<Profile, string>;
@@ -7,6 +7,8 @@ export class AntiScrollDB extends Dexie {
   articles!: Table<Article, string>;
   badges!: Table<Badge, string>;
   syncQueue!: Table<SyncQueueEntry, number>;
+  courses!: Table<Course, string>;
+  courseNodes!: Table<CourseNode, string>;
 
   constructor() {
     super('AntiScrollDB');
@@ -16,6 +18,15 @@ export class AntiScrollDB extends Dexie {
       articles: 'id, profileId, category, gameCompleted, createdAt',
       badges: 'id, profileId, type, tier',
       syncQueue: '++id, profileId, action, createdAt'
+    });
+    this.version(2).stores({
+      profiles: 'id, name',
+      topicCards: 'id, profileId, status, category, expiresAt',
+      articles: 'id, profileId, category, gameCompleted, createdAt',
+      badges: 'id, profileId, type, tier',
+      syncQueue: '++id, profileId, action, createdAt',
+      courses: 'id, profileId, status, updatedAt',
+      courseNodes: 'id, courseId, profileId, status'
     });
   }
 }
@@ -32,6 +43,8 @@ export async function ensureDefaultProfile(): Promise<Profile> {
       avatarEmoji: '🧑‍💻',
       categories: ['Software Architecture', 'C++', 'Math Puzzles', 'Music Theory', 'Science'],
       readLengthMinutes: 5,
+      preferredModel: 'gemini-1.5-flash',
+      preferredTopicModel: 'gemini-1.5-flash-8b',
       feedLayoutMode: 'swipe',
       createdAt: new Date()
     };

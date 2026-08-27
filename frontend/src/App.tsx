@@ -6,6 +6,7 @@ import { Navbar } from './components/common/Navbar';
 import { ProfileSwitcher } from './components/common/ProfileSwitcher';
 import { ProfileSelectModal } from './components/common/ProfileSelectModal';
 import { FeedPage } from './pages/FeedPage';
+import { CoursesPage } from './pages/CoursesPage';
 import { ReaderPage } from './pages/ReaderPage';
 import { LibraryPage } from './pages/LibraryPage';
 import { ProgressPage } from './pages/ProgressPage';
@@ -14,13 +15,22 @@ import { SettingsPage } from './pages/SettingsPage';
 export function App() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [showProfileSelectModal, setShowProfileSelectModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<'feed' | 'library' | 'progress' | 'settings'>('feed');
+  const [activeTab, setActiveTab] = useState<'feed' | 'courses' | 'library' | 'progress' | 'settings'>('feed');
   const [selectedTopic, setSelectedTopic] = useState<ITopicCard | null>(null);
   const [selectedArticleId, setSelectedArticleId] = useState<string | null>(null);
   const [isReading, setIsReading] = useState(false);
 
+
   useEffect(() => {
     loadCachedOrInitialProfile();
+
+    const handleOnline = () => {
+      console.log('[BrainByte] Network connection restored. Flushing sync queue to NAS...');
+      syncManager.processSyncQueue();
+    };
+
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
   }, []);
 
   const loadCachedOrInitialProfile = async () => {
@@ -107,6 +117,9 @@ export function App() {
             <>
               {activeTab === 'feed' && (
                 <FeedPage key={`feed-${profile.id}`} profile={profile} onSelectTopic={handleSelectTopicCard} />
+              )}
+              {activeTab === 'courses' && (
+                <CoursesPage key={`courses-${profile.id}`} profile={profile} />
               )}
               {activeTab === 'library' && (
                 <LibraryPage key={`library-${profile.id}`} profile={profile} onSelectArticle={handleSelectLibraryArticle} />

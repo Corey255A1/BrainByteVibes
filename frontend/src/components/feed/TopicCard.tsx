@@ -1,5 +1,5 @@
 import type { TopicCard as ITopicCard } from '../../types';
-import { BookOpen, X, Sparkles } from 'lucide-react';
+import { Glasses, X, Sparkles } from 'lucide-react';
 
 interface Props {
   topic: ITopicCard;
@@ -53,7 +53,7 @@ export function TopicCard({ topic, onRead, onDismiss }: Props) {
               : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/20'
           }`}
         >
-          {topic.isWildcard ? <Sparkles size={16} /> : <BookOpen size={16} />} Read Now
+          {topic.isWildcard ? <Sparkles size={16} /> : <Glasses size={18} />} Read Now
         </button>
       </div>
     </div>

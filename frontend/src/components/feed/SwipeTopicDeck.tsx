@@ -1,6 +1,7 @@
 import { useState, useRef } from 'preact/hooks';
 import type { TopicCard as ITopicCard } from '../../types';
-import { X, BookOpen, Bookmark, Sparkles, RefreshCw } from 'lucide-react';
+import { X, Glasses, Bookmark, Sparkles, RefreshCw } from 'lucide-react';
+
 
 interface Props {
   topics: ITopicCard[];
@@ -241,7 +242,7 @@ export function SwipeTopicDeck({
           title="Read Now (Swipe Right)"
           className="w-14 h-14 rounded-full bg-emerald-500 text-slate-950 font-bold hover:bg-emerald-400 flex items-center justify-center transition-all shadow-xl shadow-emerald-500/20 active:scale-90"
         >
-          <BookOpen size={24} />
+          <Glasses size={26} />
         </button>
       </div>
     </div>

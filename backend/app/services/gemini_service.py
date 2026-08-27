@@ -205,4 +205,107 @@ Word Search:
             if chunk.text:
                 yield chunk.text
 
+    async def generate_course_dag(self, topic_prompt: str, model: str = "gemini-1.5-flash", api_key: str = None) -> dict:
+        client = self._get_client(api_key)
+        target_model = model or "gemini-1.5-flash"
+
+        prompt = f"""You are a master curriculum architect and subject matter expert for BrainByte.
+The user wants to master the following topic: "{topic_prompt}".
+
+Design a structured, progressive learning curriculum represented as a Knowledge Graph / Directed Acyclic Graph (DAG).
+Break down the subject into 5 to 7 logical bite-sized lesson nodes ordered from foundational concepts to advanced applications.
+
+Requirements:
+1. "course_title": Clean, catchy title for the entire course (max 6 words).
+2. "nodes": List of lesson nodes. Each node must have:
+   - "id": unique string identifier (e.g., "node-1", "node-2")
+   - "title": concise lesson title (e.g., "Foundations of Superposition")
+   - "description": 1-2 sentence hook describing what the user will master in this specific lesson.
+   - "prerequisites": list of prerequisite node IDs that MUST be completed before unlocking this node. The first node(s) should have an empty list [].
+   - "tags": list of 2-4 key concept/topic tags covered in this lesson.
+
+Output strictly valid JSON with this exact schema:
+{{
+  "course_title": "Course Title Here",
+  "nodes": [
+    {{
+      "id": "node-1",
+      "title": "Foundational Concept",
+      "description": "Introduction to key principles.",
+      "prerequisites": [],
+      "tags": ["basics", "principles"]
+    }},
+    {{
+      "id": "node-2",
+      "title": "Intermediate Topic",
+      "description": "Building upon foundational concepts.",
+      "prerequisites": ["node-1"],
+      "tags": ["intermediate", "application"]
+    }}
+  ]
+}}
+"""
+        response = client.models.generate_content(
+            model=target_model,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json"
+            )
+        )
+        return json.loads(response.text)
+
+    async def stream_course_lesson(
+        self,
+        course_title: str,
+        lesson_title: str,
+        lesson_description: str,
+        tags: list[str],
+        read_minutes: int = 5,
+        model: str = "gemini-1.5-flash",
+        api_key: str = None
+    ) -> AsyncGenerator[str, None]:
+        client = self._get_client(api_key)
+        target_model = model or "gemini-1.5-flash"
+        word_count = read_minutes * 200
+        tags_str = ", ".join(tags) if tags else "General"
+
+        prompt = f"""Write a bite-sized micro-learning lesson for the course "{course_title}".
+Lesson Title: "{lesson_title}"
+Lesson Focus: {lesson_description}
+Key Topic Tags Covered: {tags_str}
+
+AVAILABLE USER READING TIME: {read_minutes} MINUTES (~{word_count} words target).
+
+IMPORTANT TIME-TAILORING RULES:
+1. If reading time is short (3-5 minutes): Make the article punchy, crystal clear, focused on 1 core mental model, and include 1 interactive check/quiz at the end.
+2. If reading time is medium to long (10-30 minutes): Provide a comprehensive deep dive with rich examples, detailed step-by-step breakdowns, code/diagrams if relevant, and 2-3 knowledge checks/quizzes.
+
+Structure:
+1. Engaging title and short intro hook
+2. Clear markdown ## headings
+3. Use > callout boxes for key formulas, rules, or takeaways
+4. Tag Summary Callout box at top highlighting covered topics: Tags: [{tags_str}]
+5. Clear examples and intuitive explanations matching the target read time ({read_minutes} min).
+6. End with a "## Sources" section listing 2-3 real, authoritative references with valid HTTPS links.
+
+At the very end of the lesson, output a mini-game JSON inside a ```game-json ... ``` code fence testing the lesson content.
+Pick ONE game type out of: "wordle", "flashcard", "concept_match", "crossword", or "word_search".
+
+Example:
+```game-json
+{{
+  "type": "concept_match",
+  "data": {{ "pairs": [ {{"term": "Term A", "definition": "Definition A"}} ] }}
+}}
+```
+"""
+        response_stream = client.models.generate_content_stream(
+            model=target_model,
+            contents=prompt,
+        )
+        for chunk in response_stream:
+            if chunk.text:
+                yield chunk.text
+
 gemini_service = GeminiService()
+

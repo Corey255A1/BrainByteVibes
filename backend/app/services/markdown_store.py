@@ -65,4 +65,23 @@ class MarkdownStore:
 
         return {}, raw_text
 
+    def save_course_lesson(self, username: str, folder_name: str, lesson_id: str, frontmatter: dict, content: str, title: str = None) -> str:
+        user_dir = self.get_user_dir(username)
+        # Create courses/{folder_name} directory under user directory
+        course_dir = user_dir / "courses" / folder_name
+        course_dir.mkdir(parents=True, exist_ok=True)
+
+        lesson_title = title or frontmatter.get("title") or ""
+        filename = format_title_filename(lesson_title, lesson_id)
+        filepath = course_dir / filename
+
+        fm_string = yaml.safe_dump(frontmatter, sort_keys=False)
+        full_file_content = f"---\n{fm_string}---\n\n{content.strip()}\n"
+
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(full_file_content)
+
+        return str(filepath.relative_to(self.base_dir))
+
 markdown_store = MarkdownStore()
+

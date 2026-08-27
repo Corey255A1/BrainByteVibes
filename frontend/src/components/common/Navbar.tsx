@@ -1,18 +1,20 @@
-import { Compass, BookOpen, Award, Settings } from 'lucide-react';
+import { Compass, GraduationCap, BookOpen, Award, Settings } from 'lucide-react';
 
 interface Props {
-  activeTab: 'feed' | 'library' | 'progress' | 'settings';
-  setActiveTab: (tab: 'feed' | 'library' | 'progress' | 'settings') => void;
+  activeTab: 'feed' | 'courses' | 'library' | 'progress' | 'settings';
+  setActiveTab: (tab: 'feed' | 'courses' | 'library' | 'progress' | 'settings') => void;
   unreadCount?: number;
 }
 
 export function Navbar({ activeTab, setActiveTab }: Props) {
   const tabs = [
     { id: 'feed', label: 'Feed', icon: Compass },
+    { id: 'courses', label: 'Courses', icon: GraduationCap },
     { id: 'library', label: 'Library', icon: BookOpen },
     { id: 'progress', label: 'Progress', icon: Award },
     { id: 'settings', label: 'Settings', icon: Settings }
   ] as const;
+
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 bg-slate-950/90 backdrop-blur-md border-t border-slate-800 py-2 px-4">
