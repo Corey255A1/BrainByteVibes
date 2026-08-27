@@ -28,39 +28,25 @@ export function ProfileSelectModal({ onSelectProfile }: Props) {
       // 2. Fetch remote user profiles from backend NAS server
       const remoteProfs = await syncManager.fetchRemoteUsers();
 
-      // 3. Merge profiles (prefer local display name if remote is default/generic)
+      // 3. Merge profiles:
       const profileMap = new Map<string, Profile>();
       remoteProfs.forEach(rp => profileMap.set(rp.id, rp));
 
       for (const lp of localProfs) {
         const existingRemote = profileMap.get(lp.id);
-        if (existingRemote) {
-          if (lp.name && lp.name !== lp.id && !lp.name.startsWith('user-') && lp.name !== 'default-user') {
-            existingRemote.name = lp.name;
-            existingRemote.avatarEmoji = lp.avatarEmoji || existingRemote.avatarEmoji;
-            syncManager.pushUserProfile(existingRemote);
-          }
-          profileMap.set(lp.id, existingRemote);
-        } else {
+        if (!existingRemote || (lp.name && lp.name !== lp.id)) {
           profileMap.set(lp.id, lp);
-          syncManager.pushUserProfile(lp);
         }
       }
 
-      const merged: Profile[] = [];
-      for (const p of profileMap.values()) {
-        let cleanName = p.name;
-        if (cleanName === 'default-user' || cleanName.startsWith('user-1')) {
-          cleanName = p.id === 'default-user' ? 'Corey' : (p.id === 'renee' ? 'Renee' : 'Learner');
-        }
-        const cleanedProfile = { ...p, name: cleanName };
-        await db.profiles.put(cleanedProfile);
-        merged.push(cleanedProfile);
+      const merged = Array.from(profileMap.values());
+      for (const p of merged) {
+        await db.profiles.put(p);
       }
 
       setExistingProfiles(merged);
 
-      // Only force wizard if no local OR remote profiles exist anywhere
+      // Only force wizard if no profiles exist anywhere
       if (merged.length === 0) {
         setIsCreatingNew(true);
       }

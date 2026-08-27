@@ -10,37 +10,8 @@ from app.services.markdown_store import markdown_store
 
 @router.get("", response_model=list[UserRead])
 def list_users(session: Session = Depends(get_session)):
-    # Auto-discover users from data/articles/ directories if any exist
-    articles_dir = markdown_store.base_dir
-    if articles_dir.exists():
-        for user_folder in articles_dir.iterdir():
-            if user_folder.is_dir():
-                folder_id = user_folder.name
-                display_name = folder_id.capitalize()
-                existing = session.get(User, folder_id)
-                if not existing:
-                    new_u = User(
-                        id=folder_id,
-                        name=display_name,
-                        avatar_emoji="🧑‍💻",
-                        categories="[]",
-                        read_length_minutes=5,
-                        created_at=datetime.utcnow(),
-                        updated_at=datetime.utcnow()
-                    )
-                    session.add(new_u)
-                    session.commit()
+    return session.exec(select(User)).all()
 
-    users = session.exec(select(User)).all()
-    for u in users:
-        if u.id == "default-user" and (u.name == "default-user" or u.name.startswith("user-")):
-            u.name = "Corey"
-            session.commit()
-        elif u.name.startswith("user-") and u.id != u.name:
-            u.name = u.id.capitalize()
-            session.commit()
-
-    return users
 
 @router.get("/{user_id}", response_model=UserRead)
 def get_user(user_id: str, session: Session = Depends(get_session)):
