@@ -10,6 +10,13 @@ router = APIRouter(prefix="/users", tags=["users"])
 def list_users(session: Session = Depends(get_session)):
     return session.exec(select(User)).all()
 
+@router.get("/{user_id}", response_model=UserRead)
+def get_user(user_id: str, session: Session = Depends(get_session)):
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
 @router.post("", response_model=UserRead)
 def create_or_update_user(user_in: UserCreate, session: Session = Depends(get_session)):
     user = session.get(User, user_in.id)
@@ -18,6 +25,9 @@ def create_or_update_user(user_in: UserCreate, session: Session = Depends(get_se
         user.avatar_emoji = user_in.avatar_emoji
         user.categories = user_in.categories
         user.read_length_minutes = user_in.read_length_minutes
+        user.preferred_model = user_in.preferred_model
+        user.preferred_topic_model = user_in.preferred_topic_model
+        user.feed_layout_mode = user_in.feed_layout_mode
         user.updated_at = datetime.utcnow()
     else:
         user = User.model_validate(user_in)
@@ -25,3 +35,4 @@ def create_or_update_user(user_in: UserCreate, session: Session = Depends(get_se
     session.commit()
     session.refresh(user)
     return user
+

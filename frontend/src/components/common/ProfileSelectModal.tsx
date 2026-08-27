@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'preact/hooks';
 import type { Profile } from '../../types';
 import { db } from '../../db/database';
+import { syncManager } from '../../services/sync';
 import { CreateProfileWizard } from './CreateProfileWizard';
-import { Plus, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Plus, Sparkles, CheckCircle2, RefreshCw, Server } from 'lucide-react';
 
 interface Props {
   onSelectProfile: (profile: Profile) => void;
@@ -11,20 +12,68 @@ interface Props {
 export function ProfileSelectModal({ onSelectProfile }: Props) {
   const [existingProfiles, setExistingProfiles] = useState<Profile[]>([]);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
+  const [isLoadingProfiles, setIsLoadingProfiles] = useState(true);
+  const [selectedUserIdLoading, setSelectedUserIdLoading] = useState<string | null>(null);
 
   useEffect(() => {
-    db.profiles.toArray().then(profs => {
-      setExistingProfiles(profs);
-      if (profs.length === 0) {
-        setIsCreatingNew(true);
-      }
-    });
+    loadLocalAndRemoteProfiles();
   }, []);
 
-  const handleSelect = (profile: Profile) => {
-    localStorage.setItem('brainbyte_active_user_id', profile.id);
-    onSelectProfile(profile);
+  const loadLocalAndRemoteProfiles = async () => {
+    setIsLoadingProfiles(true);
+    try {
+      // 1. Get local profiles from Dexie
+      const localProfs = await db.profiles.toArray();
+
+      // 2. Fetch remote user profiles from backend NAS server
+      const remoteProfs = await syncManager.fetchRemoteUsers();
+
+      // 3. Merge profiles (prefer remote settings if newer)
+      const profileMap = new Map<string, Profile>();
+      localProfs.forEach(p => profileMap.set(p.id, p));
+
+      for (const rp of remoteProfs) {
+        profileMap.set(rp.id, rp);
+        await db.profiles.put(rp); // Upsert into IndexedDB
+      }
+
+      const merged = Array.from(profileMap.values());
+      setExistingProfiles(merged);
+
+      // Only force wizard if no local OR remote profiles exist anywhere
+      if (merged.length === 0) {
+        setIsCreatingNew(true);
+      }
+    } catch (e) {
+      console.warn('Error loading profiles:', e);
+      const localProfs = await db.profiles.toArray();
+      setExistingProfiles(localProfs);
+      if (localProfs.length === 0) {
+        setIsCreatingNew(true);
+      }
+    } finally {
+      setIsLoadingProfiles(false);
+    }
   };
+
+  const handleSelect = async (profile: Profile) => {
+    setSelectedUserIdLoading(profile.id);
+    try {
+      // Sync user profile settings and articles from backend NAS server
+      const synced = await syncManager.pullUserSync(profile.id);
+      const finalProfile = synced || profile;
+
+      localStorage.setItem('brainbyte_active_user_id', finalProfile.id);
+      onSelectProfile(finalProfile);
+    } catch (e) {
+      console.warn('Error syncing selected profile settings:', e);
+      localStorage.setItem('brainbyte_active_user_id', profile.id);
+      onSelectProfile(profile);
+    } finally {
+      setSelectedUserIdLoading(null);
+    }
+  };
+
 
   if (isCreatingNew) {
     return (
@@ -58,37 +107,55 @@ export function ProfileSelectModal({ onSelectProfile }: Props) {
         <div className="flex flex-col gap-3">
           <div className="text-xs font-bold text-slate-400 uppercase tracking-wider px-1 flex justify-between items-center">
             <span>Select Profile</span>
-            <span className="text-[10px] text-emerald-400 font-mono">{existingProfiles.length} Saved</span>
+            <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-1">
+              <Server size={12} /> {existingProfiles.length} Available
+            </span>
           </div>
-          
-          <div className="flex flex-col gap-2 max-h-60 overflow-y-auto pr-1">
-            {existingProfiles.map(p => (
-              <button
-                key={p.id}
-                onClick={() => handleSelect(p)}
-                className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 hover:border-emerald-500/50 hover:bg-emerald-950/30 flex items-center justify-between transition-all group active:scale-[0.98]"
-              >
-                <div className="flex items-center gap-3 text-left">
-                  <span className="text-2xl p-2 rounded-xl bg-slate-900 border border-slate-800">
-                    {p.avatarEmoji}
-                  </span>
-                  <div>
-                    <h4 className="font-bold text-sm text-white group-hover:text-emerald-300">
-                      {p.name}
-                    </h4>
-                    <p className="text-[11px] text-slate-400 line-clamp-1">
-                      {p.categories.slice(0, 3).join(' • ')}
-                    </p>
-                  </div>
-                </div>
-                <CheckCircle2 size={20} className="text-slate-600 group-hover:text-emerald-400" />
-              </button>
-            ))}
-          </div>
+
+          {isLoadingProfiles ? (
+            <div className="p-8 text-center flex flex-col items-center gap-2 text-slate-400">
+              <RefreshCw size={24} className="animate-spin text-emerald-400" />
+              <span className="text-xs font-semibold">Connecting to NAS & fetching profiles...</span>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2 max-h-60 overflow-y-auto pr-1">
+              {existingProfiles.map(p => {
+                const isThisLoading = selectedUserIdLoading === p.id;
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => handleSelect(p)}
+                    disabled={selectedUserIdLoading !== null}
+                    className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 hover:border-emerald-500/50 hover:bg-emerald-950/30 flex items-center justify-between transition-all group active:scale-[0.98] disabled:opacity-60"
+                  >
+                    <div className="flex items-center gap-3 text-left">
+                      <span className="text-2xl p-2 rounded-xl bg-slate-900 border border-slate-800">
+                        {p.avatarEmoji}
+                      </span>
+                      <div>
+                        <h4 className="font-bold text-sm text-white group-hover:text-emerald-300">
+                          {p.name}
+                        </h4>
+                        <p className="text-[11px] text-slate-400 line-clamp-1">
+                          {p.categories.slice(0, 3).join(' • ')}
+                        </p>
+                      </div>
+                    </div>
+                    {isThisLoading ? (
+                      <RefreshCw size={18} className="animate-spin text-emerald-400 shrink-0" />
+                    ) : (
+                      <CheckCircle2 size={20} className="text-slate-600 group-hover:text-emerald-400 shrink-0" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           <button
             onClick={() => setIsCreatingNew(true)}
-            className="mt-2 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-xl text-xs flex items-center justify-center gap-2 transition-all"
+            disabled={selectedUserIdLoading !== null}
+            className="mt-2 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-xl text-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50"
           >
             <Plus size={16} /> Create New Profile
           </button>

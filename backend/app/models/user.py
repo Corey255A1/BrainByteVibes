@@ -8,6 +8,9 @@ class UserBase(SQLModel):
     categories: str = "[]"  # JSON list string
     read_length_minutes: int = 5
     preferred_model: Optional[str] = "gemini-1.5-flash"
+    preferred_topic_model: Optional[str] = "gemini-1.5-flash-8b"
+    feed_layout_mode: Optional[str] = "swipe"
+
 
 class User(UserBase, table=True):
     id: str = Field(primary_key=True)

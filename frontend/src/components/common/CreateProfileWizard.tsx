@@ -2,7 +2,9 @@ import { useState } from 'preact/hooks';
 import type { Profile, TopicCard as ITopicCard } from '../../types';
 import { db } from '../../db/database';
 import { geminiService } from '../../services/gemini';
+import { syncManager } from '../../services/sync';
 import { Sparkles, CheckCircle2, Plus, Clock, RefreshCw, ArrowRight, ArrowLeft } from 'lucide-react';
+
 
 interface Props {
   onComplete: (profile: Profile) => void;
@@ -72,7 +74,10 @@ export function CreateProfileWizard({ onComplete, onCancel }: Props) {
       await db.profiles.add(newProfile);
       localStorage.setItem('brainbyte_active_user_id', newProfile.id);
 
-      // 2. Pre-generate initial 5 topic cards for this new user profile
+      // 2. Push user profile settings to backend NAS server
+      await syncManager.pushUserProfile(newProfile);
+
+      // 3. Pre-generate initial 5 topic cards for this new user profile
       const rawTopics = await geminiService.fetchTopics(
         finalCategories,
         [],

@@ -93,6 +93,10 @@ export function SettingsPage({ profile, onUpdateProfile }: Props) {
       feedLayoutMode,
       categories
     });
+
+    // Push updated profile settings to backend NAS server
+    await syncManager.pushUserProfile(updated);
+
     onUpdateProfile(updated);
     showModal('Preferences Saved', 'Your AI topic model, article model, reading duration, and categories have been updated.');
   };
