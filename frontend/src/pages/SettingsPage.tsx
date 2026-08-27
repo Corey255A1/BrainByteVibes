@@ -4,7 +4,8 @@ import { db } from '../db/database';
 import { geminiService, type GeminiModelInfo } from '../services/gemini';
 import { syncManager } from '../services/sync';
 import { ToastModal } from '../components/common/ToastModal';
-import { Key, Server, Tag, Clock, Cpu, RefreshCw, CheckCircle, XCircle, Search, ArrowUpDown, Compass, Zap } from 'lucide-react';
+import { ModalDialog } from '../components/common/ModalDialog';
+import { Key, Server, Tag, Clock, Cpu, RefreshCw, CheckCircle, XCircle, Search, ArrowUpDown, Compass, Zap, RotateCcw, Power, Sliders } from 'lucide-react';
 
 interface Props {
   profile: Profile;
@@ -24,6 +25,9 @@ export function SettingsPage({ profile, onUpdateProfile }: Props) {
   const [newCat, setNewCat] = useState('');
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
+  const [isRestartingServer, setIsRestartingServer] = useState(false);
+  const [confirmRestartModal, setConfirmRestartModal] = useState(false);
+
 
   // Model Sorting & Filtering State
   const [modelSearch, setModelSearch] = useState('');
@@ -119,6 +123,35 @@ export function SettingsPage({ profile, onUpdateProfile }: Props) {
     setSyncStatus(`Sync finished! Processed: ${result.processed}, Errors: ${result.errors}`);
     setTimeout(() => setSyncStatus(null), 4000);
   };
+
+  const handleRestartServer = async () => {
+    setConfirmRestartModal(false);
+    setIsRestartingServer(true);
+
+    try {
+      await syncManager.restartServer();
+    } catch (e) {
+      console.warn('Restart command sent:', e);
+    }
+
+    let attempts = 0;
+    const interval = setInterval(async () => {
+      attempts += 1;
+      const online = await syncManager.checkHealth();
+      setIsOnline(online);
+
+      if (online && attempts > 1) {
+        clearInterval(interval);
+        setIsRestartingServer(false);
+        showModal('Server Restarted', 'Your NAS backend server restarted successfully and is back online!');
+      } else if (attempts > 20) {
+        clearInterval(interval);
+        setIsRestartingServer(false);
+        showModal('Restart Command Sent', 'The restart signal was sent. Check your NAS Container Manager logs if it takes longer.');
+      }
+    }, 1500);
+  };
+
 
   // Filter and sort models
   const filteredAndSortedModels = models
@@ -488,7 +521,110 @@ export function SettingsPage({ profile, onUpdateProfile }: Props) {
         </button>
       </div>
 
-      {/* Stylized Modal Dialog */}
+      {/* Advanced Settings & Server Control Card */}
+      <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col gap-4 shadow-xl">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-2">
+            <Sliders size={20} className="text-amber-400" />
+            <h2 className="font-bold text-base text-white">Advanced Settings & Server Control</h2>
+          </div>
+          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">
+            NAS Container
+          </span>
+        </div>
+
+        {/* NAS Backend Endpoint Input */}
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+              <Server size={14} className="text-cyan-400" />
+              <span>NAS Backend Connection URL</span>
+            </label>
+            {isOnline !== null && (
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${
+                isOnline ? 'bg-emerald-950 text-emerald-400 border-emerald-500/30' : 'bg-rose-950 text-rose-400 border-rose-500/30'
+              }`}>
+                {isOnline ? <CheckCircle size={10} /> : <XCircle size={10} />}
+                {isOnline ? 'Online' : 'Offline'}
+              </span>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={backendUrl}
+              onInput={(e) => setBackendUrl((e.target as HTMLInputElement).value)}
+              placeholder="e.g. http://192.168.1.100:8000/api or http://localhost:8000/api"
+              className="flex-1 px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-cyan-400"
+            />
+            <button
+              onClick={handleSaveBackendUrl}
+              className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 font-bold text-white rounded-xl text-xs transition-all shadow-md"
+            >
+              Save URL
+            </button>
+          </div>
+          <p className="text-[11px] text-slate-400 mt-1">
+            Specify your NAS server IP or hostname. Used for syncing articles, reading logs, and AI course models.
+          </p>
+        </div>
+
+        {/* Server Restart Control */}
+        <div className="pt-3 border-t border-slate-800/80 flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
+                <RotateCcw size={14} className="text-amber-400" />
+                <span>Restart Backend Server</span>
+              </h3>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                Reboot the backend container process to apply newly uploaded code/files without opening Container Manager.
+              </p>
+            </div>
+            <button
+              onClick={() => setConfirmRestartModal(true)}
+              disabled={isRestartingServer}
+              className="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-bold rounded-xl text-xs shadow-lg shadow-amber-500/20 transition-all flex items-center gap-1.5 shrink-0 active:scale-95 disabled:opacity-50"
+            >
+              <Power size={14} />
+              <span>Restart Server</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Confirmation Modal for Server Restart */}
+      {confirmRestartModal && (
+        <ModalDialog
+          isOpen={true}
+          title="Restart Backend NAS Server?"
+          message="This will reboot the server process to reload your updated code files. The container will restart in ~1-2 seconds."
+          variant="warning"
+          confirmLabel="Restart Server"
+          cancelLabel="Cancel"
+          onConfirm={handleRestartServer}
+          onCancel={() => setConfirmRestartModal(false)}
+        />
+      )}
+
+      {/* Restarting Server Loading Modal Overlay */}
+      {isRestartingServer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md animate-fade-in">
+          <div className="w-full max-w-sm p-6 bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl text-center flex flex-col items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-amber-950/80 border border-amber-500/30 text-amber-400 flex items-center justify-center shadow-lg">
+              <RefreshCw size={28} className="animate-spin" />
+            </div>
+            <div>
+              <h3 className="text-lg font-black text-white">Restarting NAS Server...</h3>
+              <p className="text-xs text-slate-400 mt-1">
+                Rebooting the container process to apply your updated files. Reconnecting automatically...
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Stylized Toast Modal Dialog */}
       <ToastModal
         isOpen={modalConfig.isOpen}
         title={modalConfig.title}
@@ -498,3 +634,4 @@ export function SettingsPage({ profile, onUpdateProfile }: Props) {
     </div>
   );
 }
+

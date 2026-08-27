@@ -199,7 +199,21 @@ export class SyncManager {
       return (await db.profiles.get(profileId)) || null;
     }
   }
+
+  public async restartServer(): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.backendUrl}/system/restart`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      return res.ok;
+    } catch (e) {
+      console.warn('Error sending restart command:', e);
+      return false;
+    }
+  }
 }
 
 export const syncManager = new SyncManager();
+
 
