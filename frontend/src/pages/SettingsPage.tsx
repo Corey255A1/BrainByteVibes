@@ -218,7 +218,8 @@ export function SettingsPage({ profile, onUpdateProfile }: Props) {
         if (online && attempts > 2) {
           clearInterval(interval);
           setIsRestartingServer(false);
-          showModal('Update Applied Successfully! 🎉', 'Your NAS backend server extracted the package, rebuilt assets, and restarted cleanly.');
+          // Automatically clear stale Service Worker caches & reload fresh UI
+          await forceAppRefresh();
         } else if (attempts > 30) {
           clearInterval(interval);
           setIsRestartingServer(false);

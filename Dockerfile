@@ -16,7 +16,10 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    nodejs \
+    npm \
     && rm -rf /var/lib/apt/lists/*
+
 
 # Copy python backend requirements & install
 COPY backend/pyproject.toml backend/README.md ./

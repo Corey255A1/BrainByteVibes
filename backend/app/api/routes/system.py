@@ -104,25 +104,45 @@ async def upload_update_package(file: UploadFile = File(...)):
         # 4. Check & rebuild static frontend assets
         frontend_dir = app_dir / "frontend"
         static_dest = Path(settings.STATIC_DIR)
+        static_dest.mkdir(parents=True, exist_ok=True)
         npm_bin = shutil.which("npm")
+        built_success = False
 
         if npm_bin and frontend_dir.exists() and (frontend_dir / "package.json").exists():
             logger.info("[BrainByte OTA] Rebuilding frontend assets via npm...")
             try:
-                subprocess.run([npm_bin, "run", "build"], cwd=str(frontend_dir), check=True, timeout=120)
+                # Run npm ci or npm install if node_modules is missing
+                if not (frontend_dir / "node_modules").exists():
+                    subprocess.run([npm_bin, "install"], cwd=str(frontend_dir), check=True, timeout=180)
+
+                subprocess.run([npm_bin, "run", "build"], cwd=str(frontend_dir), check=True, timeout=180)
                 built_dist = frontend_dir / "dist"
-                if built_dist.exists():
-                    static_dest.mkdir(parents=True, exist_ok=True)
+                if built_dist.exists() and (built_dist / "index.html").exists():
                     shutil.copytree(built_dist, static_dest, dirs_exist_ok=True)
-                    logger.info(f"[BrainByte OTA] Copied built dist to {static_dest}")
+                    logger.info(f"[BrainByte OTA] Copied fresh npm build from {built_dist} to {static_dest}")
+                    built_success = True
             except Exception as e:
                 logger.warn(f"[BrainByte OTA] npm build warning: {e}")
-        elif (frontend_dir / "dist").exists():
-            static_dest.mkdir(parents=True, exist_ok=True)
-            shutil.copytree(frontend_dir / "dist", static_dest, dirs_exist_ok=True)
-        elif (source_root / "dist").exists():
-            static_dest.mkdir(parents=True, exist_ok=True)
-            shutil.copytree(source_root / "dist", static_dest, dirs_exist_ok=True)
+
+        # If npm build was not executed or failed, search for pre-built dist/static in extracted tarball
+        if not built_success:
+            candidate_dists = [
+                source_root / "dist",
+                source_root / "frontend" / "dist",
+                source_root / "static",
+                extract_dir / "dist",
+                extract_dir / "static"
+            ]
+            for cand in candidate_dists:
+                if cand.exists() and cand.is_dir() and (cand / "index.html").exists():
+                    logger.info(f"[BrainByte OTA] Found pre-built dist bundle at {cand}. Copying to {static_dest}...")
+                    shutil.copytree(cand, static_dest, dirs_exist_ok=True)
+                    built_success = True
+                    break
+
+        if not built_success:
+            logger.warn("[BrainByte OTA] Warning: No static dist bundle or index.html found in update package.")
+
 
         # 5. Schedule container restart
         async def delayed_restart():
