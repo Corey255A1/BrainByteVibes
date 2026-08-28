@@ -229,9 +229,22 @@ export class SyncManager {
 
     return await res.json();
   }
+
+  public async deleteRemoteUser(userId: string): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.backendUrl}/users/${userId}`, {
+        method: 'DELETE'
+      });
+      return res.ok;
+    } catch (e) {
+      console.warn(`Failed to delete remote user ${userId}:`, e);
+      return false;
+    }
+  }
 }
 
 export const syncManager = new SyncManager();
+
 
 
 

@@ -5,7 +5,7 @@ import { geminiService, type GeminiModelInfo } from '../services/gemini';
 import { syncManager } from '../services/sync';
 import { ToastModal } from '../components/common/ToastModal';
 import { ModalDialog } from '../components/common/ModalDialog';
-import { Key, Server, Tag, Clock, Cpu, RefreshCw, CheckCircle, XCircle, Search, ArrowUpDown, Compass, Zap, RotateCcw, Power, Sliders, Package, UploadCloud, FileArchive } from 'lucide-react';
+import { Key, Server, Tag, Clock, Cpu, RefreshCw, CheckCircle, XCircle, Search, ArrowUpDown, Compass, Zap, RotateCcw, Power, Sliders, Package, UploadCloud, FileArchive, Users, Trash2 } from 'lucide-react';
 
 interface Props {
   profile: Profile;
@@ -29,6 +29,10 @@ export function SettingsPage({ profile, onUpdateProfile }: Props) {
   const [confirmRestartModal, setConfirmRestartModal] = useState(false);
   const [selectedPackageFile, setSelectedPackageFile] = useState<File | null>(null);
   const [isUploadingPackage, setIsUploadingPackage] = useState(false);
+  const [allUsers, setAllUsers] = useState<Profile[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<Profile | null>(null);
+
 
 
 
@@ -57,7 +61,43 @@ export function SettingsPage({ profile, onUpdateProfile }: Props) {
     setBackendUrl(currentBackendUrl);
     syncManager.checkHealth().then(setIsOnline);
     fetchAvailableModels(currentBackendUrl);
+    loadAllUsers();
   }, []);
+
+  const loadAllUsers = async () => {
+    setIsLoadingUsers(true);
+    try {
+      const remoteUsers = await syncManager.fetchRemoteUsers();
+      const localUsers = await db.profiles.toArray();
+      const userMap = new Map<string, Profile>();
+      remoteUsers.forEach(u => userMap.set(u.id, u));
+      localUsers.forEach(u => {
+        if (!userMap.has(u.id)) userMap.set(u.id, u);
+      });
+      setAllUsers(Array.from(userMap.values()));
+    } catch (e) {
+      console.warn('Failed to load users:', e);
+      const localUsers = await db.profiles.toArray();
+      setAllUsers(localUsers);
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  };
+
+  const handleConfirmDeleteUser = async (targetUser: Profile) => {
+    setUserToDelete(null);
+    try {
+      await syncManager.deleteRemoteUser(targetUser.id);
+      await db.profiles.delete(targetUser.id);
+
+      showModal('User Account Deleted', `User "${targetUser.name}" was removed from the database.`);
+      await loadAllUsers();
+    } catch (e) {
+      console.error('Error deleting user account:', e);
+      showModal('Deletion Failed', 'Failed to remove user account from database.');
+    }
+  };
+
 
   const fetchAvailableModels = async (bUrl?: string) => {
     setIsLoadingModels(true);
@@ -664,6 +704,62 @@ export function SettingsPage({ profile, onUpdateProfile }: Props) {
           </div>
         </div>
 
+        {/* Manage & Delete Database Users */}
+        <div className="pt-3 border-t border-slate-800/80 flex flex-col gap-2.5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
+                <Users size={14} className="text-rose-400" />
+                <span>Database User Accounts ({allUsers.length})</span>
+              </h3>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                Remove users from the SQLModel database. Articles and course files on disk remain unaffected.
+              </p>
+            </div>
+            <button
+              onClick={loadAllUsers}
+              className="p-1.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 hover:text-white transition-all text-xs"
+              title="Refresh User List"
+            >
+              <RefreshCw size={14} className={isLoadingUsers ? 'animate-spin' : ''} />
+            </button>
+          </div>
+
+          <div className="flex flex-col gap-2 max-h-48 overflow-y-auto pr-1">
+            {allUsers.length === 0 ? (
+              <div className="p-4 text-center bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-500">
+                No users found in backend database.
+              </div>
+            ) : (
+              allUsers.map(u => (
+                <div
+                  key={u.id}
+                  className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between text-xs"
+                >
+                  <div className="flex items-center gap-2.5 text-left">
+                    <span className="text-lg p-1.5 rounded-lg bg-slate-900 border border-slate-800">
+                      {u.avatarEmoji || '🧑‍💻'}
+                    </span>
+                    <div>
+                      <h4 className="font-bold text-white leading-tight">{u.name}</h4>
+                      <span className="text-[10px] text-slate-500 font-mono">ID: {u.id}</span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setUserToDelete(u)}
+                    title={`Delete ${u.name} from database`}
+                    className="p-2 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 border border-transparent hover:border-rose-500/30 transition-all flex items-center gap-1 text-[11px] font-semibold"
+                  >
+                    <Trash2 size={14} />
+                    <span className="hidden sm:inline">Delete</span>
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
         {/* Server Restart Control */}
         <div className="pt-3 border-t border-slate-800/80 flex flex-col gap-2">
           <div className="flex items-center justify-between gap-3">
@@ -687,6 +783,20 @@ export function SettingsPage({ profile, onUpdateProfile }: Props) {
           </div>
         </div>
       </div>
+
+      {/* Confirmation Modal for User Deletion */}
+      {userToDelete && (
+        <ModalDialog
+          isOpen={true}
+          title={`Delete User "${userToDelete.name}"?`}
+          message={`Are you sure you want to remove ${userToDelete.name} from the database? Saved articles and course files on disk will NOT be affected.`}
+          variant="danger"
+          confirmLabel="Delete User"
+          cancelLabel="Cancel"
+          onConfirm={() => handleConfirmDeleteUser(userToDelete)}
+          onCancel={() => setUserToDelete(null)}
+        />
+      )}
 
       {/* Confirmation Modal for Server Restart */}
       {confirmRestartModal && (
