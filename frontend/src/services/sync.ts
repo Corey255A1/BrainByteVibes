@@ -212,8 +212,26 @@ export class SyncManager {
       return false;
     }
   }
+
+  public async uploadUpdatePackage(file: File): Promise<{ status: string; message: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const res = await fetch(`${this.backendUrl}/system/upload-update`, {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({ detail: 'Failed to upload update package' }));
+      throw new Error(errorData.detail || 'Update upload failed');
+    }
+
+    return await res.json();
+  }
 }
 
 export const syncManager = new SyncManager();
+
 
 

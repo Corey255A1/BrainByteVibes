@@ -5,7 +5,7 @@ import { geminiService, type GeminiModelInfo } from '../services/gemini';
 import { syncManager } from '../services/sync';
 import { ToastModal } from '../components/common/ToastModal';
 import { ModalDialog } from '../components/common/ModalDialog';
-import { Key, Server, Tag, Clock, Cpu, RefreshCw, CheckCircle, XCircle, Search, ArrowUpDown, Compass, Zap, RotateCcw, Power, Sliders } from 'lucide-react';
+import { Key, Server, Tag, Clock, Cpu, RefreshCw, CheckCircle, XCircle, Search, ArrowUpDown, Compass, Zap, RotateCcw, Power, Sliders, Package, UploadCloud, FileArchive } from 'lucide-react';
 
 interface Props {
   profile: Profile;
@@ -27,6 +27,9 @@ export function SettingsPage({ profile, onUpdateProfile }: Props) {
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
   const [isRestartingServer, setIsRestartingServer] = useState(false);
   const [confirmRestartModal, setConfirmRestartModal] = useState(false);
+  const [selectedPackageFile, setSelectedPackageFile] = useState<File | null>(null);
+  const [isUploadingPackage, setIsUploadingPackage] = useState(false);
+
 
 
   // Model Sorting & Filtering State
@@ -151,6 +154,42 @@ export function SettingsPage({ profile, onUpdateProfile }: Props) {
       }
     }, 1500);
   };
+
+  const handleUploadPackage = async () => {
+    if (!selectedPackageFile) return;
+    setIsUploadingPackage(true);
+
+    try {
+      const res = await syncManager.uploadUpdatePackage(selectedPackageFile);
+      console.log('Update result:', res.message);
+      setSelectedPackageFile(null);
+
+      // Trigger automatic health polling overlay while container reboots with new update
+      setIsRestartingServer(true);
+      let attempts = 0;
+      const interval = setInterval(async () => {
+        attempts += 1;
+        const online = await syncManager.checkHealth();
+        setIsOnline(online);
+
+        if (online && attempts > 2) {
+          clearInterval(interval);
+          setIsRestartingServer(false);
+          showModal('Update Applied Successfully! 🎉', 'Your NAS backend server extracted the package, rebuilt assets, and restarted cleanly.');
+        } else if (attempts > 30) {
+          clearInterval(interval);
+          setIsRestartingServer(false);
+          showModal('Update Processed', 'The package was extracted and update triggered. Check NAS Container Manager logs if it takes longer.');
+        }
+      }, 1500);
+    } catch (e: any) {
+      console.error('Error uploading update package:', e);
+      showModal('Package Update Failed', e.message || 'Failed to extract update package. Please check file format or server logs.');
+    } finally {
+      setIsUploadingPackage(false);
+    }
+  };
+
 
 
   // Filter and sort models
@@ -569,6 +608,62 @@ export function SettingsPage({ profile, onUpdateProfile }: Props) {
           </p>
         </div>
 
+        {/* OTA Package Upload & Update */}
+        <div className="pt-3 border-t border-slate-800/80 flex flex-col gap-2.5">
+          <div>
+            <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
+              <Package size={14} className="text-purple-400" />
+              <span>Upload OTA Update Package (.tgz)</span>
+            </h3>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              Upload a code archive package (.tgz / .tar.gz). The server will extract it, rebuild assets, and reboot automatically.
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <label className="flex-1 flex items-center justify-between px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl cursor-pointer hover:border-purple-500/50 transition-all text-xs">
+              <div className="flex items-center gap-2 text-slate-300 truncate">
+                <FileArchive size={16} className="text-purple-400 shrink-0" />
+                <span className="truncate">
+                  {selectedPackageFile ? selectedPackageFile.name : 'Choose update package (.tgz)...'}
+                </span>
+              </div>
+              <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded font-mono shrink-0 ml-2">
+                {selectedPackageFile ? `${(selectedPackageFile.size / 1024 / 1024).toFixed(1)} MB` : 'Browse'}
+              </span>
+              <input
+                type="file"
+                accept=".tgz,.tar.gz,.tar"
+                onChange={(e) => {
+                  const files = (e.target as HTMLInputElement).files;
+                  if (files && files[0]) {
+                    setSelectedPackageFile(files[0]);
+                  }
+                }}
+                className="hidden"
+              />
+            </label>
+
+            <button
+              onClick={handleUploadPackage}
+              disabled={!selectedPackageFile || isUploadingPackage}
+              className="py-2.5 px-4 rounded-xl font-bold text-xs bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-lg shadow-purple-600/20 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
+            >
+              {isUploadingPackage ? (
+                <>
+                  <RefreshCw size={14} className="animate-spin" />
+                  <span>Extracting & Applying...</span>
+                </>
+              ) : (
+                <>
+                  <UploadCloud size={14} />
+                  <span>Upload & Apply Update</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
         {/* Server Restart Control */}
         <div className="pt-3 border-t border-slate-800/80 flex flex-col gap-2">
           <div className="flex items-center justify-between gap-3">
@@ -583,7 +678,7 @@ export function SettingsPage({ profile, onUpdateProfile }: Props) {
             </div>
             <button
               onClick={() => setConfirmRestartModal(true)}
-              disabled={isRestartingServer}
+              disabled={isRestartingServer || isUploadingPackage}
               className="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-bold rounded-xl text-xs shadow-lg shadow-amber-500/20 transition-all flex items-center gap-1.5 shrink-0 active:scale-95 disabled:opacity-50"
             >
               <Power size={14} />
