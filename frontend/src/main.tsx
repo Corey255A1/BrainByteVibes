@@ -10,7 +10,8 @@ registerSW({
     console.log('[BrainByte] App is ready to work offline.');
   },
   onNeedRefresh() {
-    console.log('[BrainByte] New content available.');
+    console.log('[BrainByte] New update available on server.');
+    window.dispatchEvent(new CustomEvent('brainbyte-sw-update'));
   }
 });
 

@@ -12,6 +12,9 @@ import { LibraryPage } from './pages/LibraryPage';
 import { ProgressPage } from './pages/ProgressPage';
 import { SettingsPage } from './pages/SettingsPage';
 
+import { forceAppRefresh } from './utils/pwa';
+import { Sparkles, RefreshCw } from 'lucide-react';
+
 export function App() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [showProfileSelectModal, setShowProfileSelectModal] = useState(false);
@@ -19,7 +22,7 @@ export function App() {
   const [selectedTopic, setSelectedTopic] = useState<ITopicCard | null>(null);
   const [selectedArticleId, setSelectedArticleId] = useState<string | null>(null);
   const [isReading, setIsReading] = useState(false);
-
+  const [hasUpdateBanner, setHasUpdateBanner] = useState(false);
 
   useEffect(() => {
     loadCachedOrInitialProfile();
@@ -29,9 +32,43 @@ export function App() {
       syncManager.processSyncQueue();
     };
 
+    const handleSwUpdate = () => {
+      console.log('[BrainByte] PWA update detected!');
+      setHasUpdateBanner(true);
+    };
+
     window.addEventListener('online', handleOnline);
-    return () => window.removeEventListener('online', handleOnline);
+    window.addEventListener('brainbyte-sw-update', handleSwUpdate);
+
+    // Periodically poll server health to detect container restarts / new builds
+    let initialServerTime: number | null = null;
+    const versionCheckInterval = setInterval(async () => {
+      try {
+        const backendUrl = syncManager.getBackendUrl().replace(/\/api$/, '');
+        const res = await fetch(`${backendUrl}/health`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.server_start_time) {
+            if (initialServerTime === null) {
+              initialServerTime = data.server_start_time;
+            } else if (data.server_start_time !== initialServerTime) {
+              console.log('[BrainByte] Server rebooted with new version!');
+              setHasUpdateBanner(true);
+            }
+          }
+        }
+      } catch (e) {
+        // Offline or unreachable
+      }
+    }, 20000);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('brainbyte-sw-update', handleSwUpdate);
+      clearInterval(versionCheckInterval);
+    };
   }, []);
+
 
   const loadCachedOrInitialProfile = async () => {
     const cachedId = localStorage.getItem('brainbyte_active_user_id');
@@ -141,6 +178,23 @@ export function App() {
         )}
       </main>
 
+      {/* Floating PWA Update Notification Banner */}
+      {hasUpdateBanner && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-slate-950 font-bold text-xs py-2 px-4 shadow-xl flex items-center justify-between animate-fade-in">
+          <div className="flex items-center gap-2">
+            <Sparkles size={16} />
+            <span>A new BrainByte update is ready!</span>
+          </div>
+          <button
+            onClick={() => forceAppRefresh()}
+            className="px-3 py-1 bg-slate-950 text-emerald-400 font-extrabold rounded-lg hover:bg-slate-900 transition-all flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer"
+          >
+            <RefreshCw size={13} />
+            <span>Update & Reload</span>
+          </button>
+        </div>
+      )}
+
       {/* Bottom Navbar (Hidden during active article reading or modal) */}
       {!isReading && profile && (
         <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
@@ -148,3 +202,4 @@ export function App() {
     </div>
   );
 }
+

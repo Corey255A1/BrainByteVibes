@@ -3,9 +3,12 @@ import type { Profile } from '../types';
 import { db } from '../db/database';
 import { geminiService, type GeminiModelInfo } from '../services/gemini';
 import { syncManager } from '../services/sync';
+import { forceAppRefresh } from '../utils/pwa';
 import { ToastModal } from '../components/common/ToastModal';
 import { ModalDialog } from '../components/common/ModalDialog';
 import { Key, Server, Tag, Clock, Cpu, RefreshCw, CheckCircle, XCircle, Search, ArrowUpDown, Compass, Zap, RotateCcw, Power, Sliders, Package, UploadCloud, FileArchive, Users, Trash2 } from 'lucide-react';
+
+
 
 interface Props {
   profile: Profile;
@@ -757,6 +760,28 @@ export function SettingsPage({ profile, onUpdateProfile }: Props) {
                 </div>
               ))
             )}
+          </div>
+        </div>
+
+        {/* Force PWA Refresh / Clear SW Cache */}
+        <div className="pt-3 border-t border-slate-800/80 flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
+                <RefreshCw size={14} className="text-cyan-400" />
+                <span>Force PWA Refresh & Clear Cache</span>
+              </h3>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                Purges stale Service Worker static file caches and reloads client assets directly from the server. (User profiles & articles remain safe).
+              </p>
+            </div>
+            <button
+              onClick={() => forceAppRefresh()}
+              className="px-4 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-cyan-600/20 transition-all flex items-center gap-1.5 shrink-0 active:scale-95 cursor-pointer"
+            >
+              <RefreshCw size={14} />
+              <span>Force Refresh</span>
+            </button>
           </div>
         </div>
 

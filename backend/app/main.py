@@ -30,9 +30,18 @@ app.add_middleware(
 # Include API routes under /api
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
+import time
+
+SERVER_START_TIME = int(time.time())
+
 @app.get("/health")
 def health_check():
-    return {"status": "ok", "app": settings.PROJECT_NAME}
+    return {
+        "status": "ok",
+        "app": settings.PROJECT_NAME,
+        "server_start_time": SERVER_START_TIME
+    }
+
 
 # Serve single-container static PWA frontend if built static files exist
 static_path = Path(settings.STATIC_DIR)
